@@ -1,5 +1,5 @@
-local Window  = getgenv().EH_Window
-local Library = getgenv().EH_Library
+local Window  = _G.EH_Window
+local Library = _G.EH_Library
 
 local ConfigTab    = Window:Tab("config")
 local CfgSaveSection = ConfigTab:Section("save config", "Left")
@@ -227,4 +227,4 @@ CfgLoadSection:Button({Title = "[R]  refresh list", Callback = function()
 end})
 
 
-getgenv().ConfigTab = ConfigTab
+_G.EH_ConfigTab = ConfigTab
