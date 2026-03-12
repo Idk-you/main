@@ -1,0 +1,156 @@
+local Window  = getgenv().EH_Window
+local Library = getgenv().EH_Library
+
+local VisTab = Window:Tab("visuals")
+
+local WldSection = VisTab:Section("world", "Left")
+WldSection:Toggle({Title = "fullbright", Flag = "WldFullbright", Callback = function(s)
+    ModS.fullbright = s
+    if s then
+        Lighting.Brightness = 2
+        Lighting.Ambient = Color3.fromRGB(178, 178, 178)
+        Lighting.OutdoorAmbient = Color3.fromRGB(178, 178, 178)
+    else
+        Lighting.Brightness = 1
+        Lighting.Ambient = Color3.fromRGB(103, 103, 103)
+        Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+    end
+end, Default = false})
+WldSection:Toggle({Title = "remove fog", Flag = "WldNoFog", Callback = function(s)
+    ModS.noFog = s
+    if s then
+        Lighting.FogEnd = 1e6; Lighting.FogStart = 999999
+        local atm = Lighting:FindFirstChildOfClass("Atmosphere")
+        if atm then atm.Haze = 0; atm.Density = 0; atm.Glare = 0 end
+    else
+        Lighting.FogEnd = 100000; Lighting.FogStart = 0
+        local atm = Lighting:FindFirstChildOfClass("Atmosphere")
+        if atm then atm.Haze = 1.6; atm.Density = 0.28 end
+    end
+end, Default = false})
+WldSection:Toggle({Title = "no clouds", Flag = "WldNoClouds", Callback = function(s)
+    for _, obj in ipairs(Lighting:GetChildren()) do
+        if obj:IsA("Clouds") then obj.Enabled = not s end
+    end
+    local terrain = workspace:FindFirstChildOfClass("Terrain")
+    if terrain then
+        for _, obj in ipairs(terrain:GetChildren()) do
+            if obj:IsA("Clouds") then obj.Enabled = not s end
+        end
+    end
+end, Default = false})
+
+applyGrassRemoval = function(enable)
+    local terrain = workspace:FindFirstChildOfClass("Terrain")
+
+    local function _zeroGrass(t)
+        if not t then return end
+        pcall(function() sethiddenproperty(t, "Decoration", false) end)
+        pcall(function() sethiddenproperty(t, "GrassLength",  0)   end)
+    end
+    local function _restoreGrass(t)
+        if not t then return end
+        pcall(function() sethiddenproperty(t, "Decoration", true) end)
+        pcall(function() sethiddenproperty(t, "GrassLength", 2)   end)
+    end
+    local function _zeroMaterial()
+        pcall(function()
+            local ms = game:GetService("MaterialService")
+            if ms and ms:FindFirstChild("GrassTerrain") then
+                ms.GrassTerrain.StudsPerTile = 9999999
+            end
+        end)
+    end
+    local function _restoreMaterial()
+        pcall(function()
+            local ms = game:GetService("MaterialService")
+            if ms and ms:FindFirstChild("GrassTerrain") then
+                ms.GrassTerrain.StudsPerTile = 8
+            end
+        end)
+    end
+
+    -- disconnect any old watcher first
+    if BrzS._grassConn then BrzS._grassConn:Disconnect(); BrzS._grassConn = nil end
+    if BrzS._grassCharConn then BrzS._grassCharConn:Disconnect(); BrzS._grassCharConn = nil end
+
+    if enable then
+        -- apply immediately to current terrain
+        _zeroGrass(terrain)
+        _zeroMaterial()
+
+        -- watch for terrain being re-added (map changes, teleports)
+        BrzS._grassConn = workspace.DescendantAdded:Connect(function(obj)
+            if obj:IsA("Terrain") then
+                task.wait() -- one frame so it's parented fully
+                _zeroGrass(obj)
+                _zeroMaterial()
+            end
+        end)
+        -- re-apply on respawn in case terrain is reloaded per-character
+        BrzS._grassCharConn = player.CharacterAdded:Connect(function()
+            task.wait(0.5)
+            _zeroGrass(workspace:FindFirstChildOfClass("Terrain"))
+        end)
+    else
+        _restoreGrass(terrain)
+        _restoreMaterial()
+    end
+end
+
+WldSection:Toggle({Title = "remove grass", Flag = "WldNoGrass", Default = false, Callback = function(s)
+    ModS.noGrass = s
+    applyGrassRemoval(s)
+end})
+WldSection:Toggle({Title = "no leaves", Flag = "WldNoLeaves", Default = false, Callback = function(s)
+    BrzS.noLeaves = s
+    if BrzS.applyNoLeaves then BrzS.applyNoLeaves(s) end
+end})
+WldSection:Slider({Title = "clock time", Flag = "WldClockTime", Symbol = "h", Default = 12, Min = 0, Max = 24, Decimals = 1, Callback = function(v)
+    ModS.clockTime = v
+
+    if Library.Flags["WldLockTime"] then
+        Lighting.ClockTime = v
+        local h = math.floor(v); local m = math.floor((v-h)*60)
+        Lighting.TimeOfDay = string.format("%02d:%02d:00", h, m)
+        BrzS._lockedClockTime = v
+    end
+end})
+WldSection:Toggle({Title = "lock time", Flag = "WldLockTime", Callback = function(s)
+    if not s then BrzS._lockedClockTime = nil
+    else BrzS._lockedClockTime = Lighting.ClockTime end
+end, Default = false})
+
+RunService.Heartbeat:Connect(function(dt)
+    _EHT.wld = _EHT.wld + dt
+    if _EHT.wld < 0.1 then return end
+    _EHT.wld = 0
+    if ModS.noFog then
+        Lighting.FogEnd = 1e6; Lighting.FogStart = 999999
+        local atm = Lighting:FindFirstChildOfClass("Atmosphere")
+        if atm then atm.Haze = 0; atm.Density = 0; atm.Glare = 0 end
+    end
+    if BrzS._lockedClockTime then
+        Lighting.ClockTime = BrzS._lockedClockTime
+    end
+end)
+
+local AmbSection = VisTab:Section("ambient", "Left")
+AmbSection:Toggle({Title = "ambient changer", Flag = "AmbientChanger", Default = false})
+AmbSection:Toggle({Title = "rgb mode", Flag = "AmbientRGB", Default = false})
+AmbSection:Slider({Title = "rgb speed", Flag = "AmbientRGBSpeed", Symbol = "x", Default = 5, Min = 1, Max = 20, Decimals = 1})
+AmbSection:Toggle({Title = "ambient color", Flag = "AmbientColTog", Default = false}):Colorpicker({Color = Color3.fromRGB(178, 140, 255), Flag = "AmbientCol"})
+
+local CamSection = VisTab:Section("camera", "Right")
+CamSection:Toggle({Title = "fov override", Flag = "CamFOVOverride", Default = false})
+CamSection:Slider({Title = "fov value", Flag = "CamFOV", Symbol = "deg", Default = 70, Min = 20, Max = 140, Decimals = 1})
+local _togCamZoom = CamSection:Toggle({Title = "zoom", Flag = "CamZoom", Default = false})
+_togCamZoom:Keybind({Title = "zoom key", Flag = "CamZoomKey", Key = Enum.KeyCode.LeftAlt, StateType = "Hold", Callback = function(state) _togCamZoom:Set(state) end})
+CamSection:Slider({Title = "zoom fov", Flag = "CamZoomFOV", Symbol = "deg", Default = 15, Min = 1, Max = 70, Decimals = 1})
+CamSection:Toggle({Title = "crosshair", Flag = "CamCrosshair", Default = false})
+CamSection:Dropdown({Title = "crosshair style", Flag = "CamXhairStyle", List = {"Dot","Cross","Circle Dot"}, Default = "Dot"})
+CamSection:Toggle({Title = "camera tilt", Flag = "CamTilt", Default = false})
+CamSection:Slider({Title = "tilt angle", Flag = "CamTiltAngle", Symbol = "deg", Default = 15, Min = 0, Max = 45, Decimals = 1})
+
+
+getgenv().VisTab  = VisTab
