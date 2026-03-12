@@ -6461,8 +6461,11 @@ end)
 LoadTime = tick()
 
 local Loader = Library.CreateLoader("Exchange.hook", Vector2.new(300, 300))
-local Window = Library.Window("exchange.hook | Have fun cheating :D", Vector2.new(500, 860))
-Window.Watermark("Exchange.hook | v1.3.0 | Have fun cheating :D")
+local Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 760))
+Window.Watermark("Exchange.hook | v1.3.2 | https://discord.gg/33V5ccwAEv")
+getgenv().EH_Window  = Window
+getgenv().EH_Library = Library
+getgenv().EH_Utility = Utility
 
 -- Paid executors (Potassium etc.) render Drawing text at lower DPI.
 -- Free executors (Xeno etc.) render crisp at default size.
@@ -7302,7 +7305,3 @@ end
 
 end)()
 end)()
-
--- export for tab files
-getgenv().EH_Window  = Window
-getgenv().EH_Library = Library
