@@ -1,5 +1,5 @@
-local Window  = getgenv().EH_Window
-local Library = getgenv().EH_Library
+local Window  = _G.EH_Window
+local Library = _G.EH_Library
 
 local VisTab = Window:Tab("visuals")
 
@@ -153,4 +153,4 @@ CamSection:Toggle({Title = "camera tilt", Flag = "CamTilt", Default = false})
 CamSection:Slider({Title = "tilt angle", Flag = "CamTiltAngle", Symbol = "deg", Default = 15, Min = 0, Max = 45, Decimals = 1})
 
 
-getgenv().VisTab  = VisTab
+_G.EH_VisTab  = VisTab
