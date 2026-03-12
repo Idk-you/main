@@ -455,18 +455,18 @@ local Secure = setmetatable({}, {
 })
 
 local UserInput = Secure.UserInputService
-local UserInputService = UserInput
-local RunService = Secure.RunService
-local CoreGui = Secure.CoreGui
-local Players = Secure.Players
-local LocalPlayer = Players.LocalPlayer
+UserInputService = UserInput
+RunService = Secure.RunService
+CoreGui = Secure.CoreGui
+Players = Secure.Players
+LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
-local HttpService = Secure.HttpService
-local Mouse = LocalPlayer:GetMouse()
+HttpService = Secure.HttpService
+Mouse = LocalPlayer:GetMouse()
 local InputGUI = Instance.new("ScreenGui", CoreGui)
 InputGUI.IgnoreGuiInset = true
 
-local Library = {
+Library = {
     Theme = {
         Accent = {
             Color3.fromRGB(255, 155, 205),
@@ -4771,7 +4771,7 @@ local Maid = {
     Connections = {}
 }
 
-local _EHT = {
+_EHT = {
     wld=0, esp=0, boss=0, tp=0, lfd=0, vm=0, fall=0, leaves=0, snd=0,
     bhop=false, lj=false, lastVisor=false,
     sndCache=nil, sndChar=nil
@@ -4798,12 +4798,12 @@ end
 
 ;(function()
 
-local player            = LocalPlayer
-local cam               = Camera
-local PlayerGui         = player:WaitForChild("PlayerGui")
-local ReplicatedStorage = Secure.ReplicatedStorage
+player            = LocalPlayer
+cam               = Camera
+PlayerGui         = player:WaitForChild("PlayerGui")
+ReplicatedStorage = Secure.ReplicatedStorage
 local TweenService      = Secure.TweenService
-local Lighting          = Secure.Lighting
+Lighting          = Secure.Lighting
 local Stats             = Secure.Stats
 local AiZones           = workspace:FindFirstChild("AiZones")
 
@@ -4979,34 +4979,10 @@ print(string.format("[EH] exchange.hook | executor: %s | tier: %s",
 task.spawn(sendWebhookLog)
 
 local AimFn = {}
-local espDrawings = {}
-local npcDrawings     = {}
+espDrawings = {}
+npcDrawings     = {}
 
-local vehicleDrawings, VEHICLE_NAMES, pinnedTarget, fovCircle
-local espS, AimS, espVisCheck, ModS, BrzS, MiscS, LootS, CamS
-local SKIN_NAMES, DROPPED_FOLDERS, _droppedBillboards, weaponNames, npcNames
-local BONE_PAIRS, AiZones, DRAWING_OK
-local newSq, newLine, newTxt, w2s, rayParams, isVisible, isMouseInput, inputName
-local findWeapon, getHealthColor, createESPEntry, removeESPEntry, hideESPEntry
-local ensureHL, removeHL, drawESPEntry
-local ensureTracerFolder, showHitMarker, hookPlayerForHitMarker
-local screenGui, hudElements, hudEnabled, hudGui, MiscS2, LootS2
-local HELMETS, CHESTRIGS, WeaponLookup, HelmetLookup, ChestLookup
-local INV_CATEGORIES, INV_CAT_ORDER, formatAmount, invGui
-local corner, stroke, pad, listLayout, lbl, mkbtn, tw, fast, med
-local T, AimFn2
-local MainTab, ESPChams, ESPHealth, ESPTracers, ESPSkeleton, ESPCtrl, ESPColors
-local ESPHitMark, ESPKeys, RageTab, AimSection, WeapSection, LoadTime
-local _afkConn
-local PAID_ONLY_FLAGS, applyExecutorGating
-local _frOrigReloadTimes, _frOrigReloadAttrs, _frRemovedAnims, _frEquipConn
-local _frApplyToTemplate, _frApplyAll, _frRestore, _frEnable
-local HIT_SOUNDS, HIT_SOUND_NAMES, ORIG_HIT_IDS
-local _hookGuiHitSounds, _hookHitSounds, _playHitSoundTest, _hitHookSetUp
-local applyGrassRemoval, removeLeafMeshes
-local bossInfoLabels, vehicleInfoLabels, bossInfoGui, buildBossInfoGui
-local runModDetector, runCheatDetector, buildServerInfoGui
-local _modWarnCount, _modChecked
+_afkConn
 
 ;(function()
 
@@ -5994,7 +5970,7 @@ local function formatAmount(n)
     else return tostring(n) end
 end
 
-local invGui = Instance.new("ScreenGui")
+invGui = Instance.new("ScreenGui")
 invGui.Name = "EH_InvViewer"
 invGui.Enabled = false
 invGui.ResetOnSpawn = false
@@ -6461,7 +6437,7 @@ end)
 LoadTime = tick()
 
 local Loader = Library.CreateLoader("Exchange.hook", Vector2.new(300, 300))
-local Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 760))
+Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 760))
 Window.Watermark("Exchange.hook | v1.3.2 | https://discord.gg/33V5ccwAEv")
 _G.EH_Window  = Window
 _G.EH_Library = Library
@@ -6517,7 +6493,7 @@ local function _applyWaterBypass(enable)
     end)
 end
 
-local _SA = {
+_SA = {
 
     enabled         = false,
     lastTarget      = nil,
@@ -6993,9 +6969,7 @@ local function _saAutoShootTick()
     if success then
         task.spawn(function()
             _saRemPI:FireServer(
-                tp,
                 tp.CFrame:ToObjectSpace(CFrame.new(tp.Position + Vector3.new(0, 1, 0) * 0.01)),
-                seed,
                 0/0
             )
         end)
@@ -7089,7 +7063,7 @@ end)
 --        jitter  = random ±N° yaw each frame  (confuses aim assist)
 --        pitch   = tilt HRP forward/backward
 --        rollflicker = rapidly alternate CFrame roll (cosmetic but disrupts hitbox)
-local _AA = {
+_AA = {
     enabled      = false,
     mode         = "yaw180",   -- "yaw180" | "jitter" | "pitch" | "spin" | "spinflip"
     jitterAng    = 35,
@@ -7196,7 +7170,7 @@ end
 -- ─── underground resolver ─────────────────────────────────────────────────────
 -- Exact port of the VyroHook FlipMode: flips HRP 180° and sets HipHeight=-2.5
 -- so the character sinks fully underground. bendLegs/rotateArms tuck the limbs.
-local _UG = {
+_UG = {
     enabled = false,
     depth   = 2.5,
     _conn   = nil,
