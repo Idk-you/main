@@ -6489,6 +6489,7 @@ local function _applyWaterBypass(enable)
 end
 
 _SA = {
+_SA = {
 
     enabled         = false,
     lastTarget      = nil,
@@ -6829,76 +6830,70 @@ local function _saRunAimbot()
 end
 
 -- ─── bullet tracer pool ───────────────────────────────────────────────────────
--- ─── Bullet Tracers (Beam-based, paid only) ──────────────────────────────────
--- Uses in-workspace Beam objects instead of Drawing.Line so they appear in 3D space
--- and work reliably across all executors. Beams auto-destroy after fade delay.
-local function _spawnTracer()
-    if not BrzS.bulletTracers then return end
-    if not _G.EH_PAID_EXECUTOR then return end
-    pcall(function()
-        -- find muzzle / barrel attachment on ViewModel
-        local vm = cam:FindFirstChild("ViewModel")
-        local barrelPart = nil
-        if vm then
-            local item = vm:FindFirstChild("Item")
-            if item then
-                local atts = item:FindFirstChild("Attachments")
-                local front = atts and atts:FindFirstChild("Front")
-                if front and front:FindFirstChild("Barrel") then
-                    barrelPart = front:FindFirstChild("Barrel")
-                elseif front then
-                    barrelPart = front
+-- ─── fast bullet ──────────────────────────────────────────────────
+do
+    local _fbEnabled = false
+    local _fbOldNC = nil
+    local _fbHooked = false
+
+    local function _hookFastBullet()
+        if _fbHooked then return end
+        local ok = pcall(function()
+            local FireProjectile  = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("FireProjectile")
+            local ProjectileInflict = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("ProjectileInflict")
+            if not (FireProjectile and ProjectileInflict) then return end
+            if not (hookmetamethod and getnamecallmethod) then return end
+            _fbOldNC = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+                if not checkcaller() then
+                    local method = getnamecallmethod()
+                    local args = {...}
+                    if _fbEnabled and self == FireProjectile and method == "InvokeServer" then
+                        local shot_id = args[2]
+                        local shot_time = args[3]
+                        task.spawn(function()
+                            pcall(function()
+                                ProjectileInflict:InvokeServer(Vector3.new(0,0,0), shot_id, shot_time, 0)
+                            end)
+                        end)
+                    end
                 end
-            end
-            if not barrelPart then
-                barrelPart = vm:FindFirstChild("MuzzlePoint", true) or vm:FindFirstChild("Barrel", true)
-            end
-        end
-        if not barrelPart then return end
-
-        local startPos = barrelPart.Position
-
-        -- find end position via raycast in camera look direction
-        local rayResult = workspace:Raycast(startPos, cam.CFrame.LookVector * 3500)
-        local endPos = rayResult and rayResult.Position or (startPos + cam.CFrame.LookVector * 3500)
-
-        -- create anchor parts
-        local pStart = Instance.new("Part")
-        pStart.Anchored = true; pStart.CanCollide = false; pStart.CanQuery = false
-        pStart.Transparency = 1; pStart.Size = Vector3.new(0.1,0.1,0.1)
-        pStart.Position = startPos; pStart.Name = "BulletStart"; pStart.Parent = workspace
-
-        local pEnd = Instance.new("Part")
-        pEnd.Anchored = true; pEnd.CanCollide = false; pEnd.CanQuery = false
-        pEnd.Transparency = 1; pEnd.Size = Vector3.new(0.1,0.1,0.1)
-        pEnd.Position = endPos; pEnd.Name = "BulletEnd"; pEnd.Parent = workspace
-
-        local att0 = Instance.new("Attachment", pStart); att0.Name = "BulletA0"
-        local att1 = Instance.new("Attachment", pEnd);   att1.Name = "BulletA1"
-
-        local beam = Instance.new("Beam")
-        beam.Attachment0 = att0
-        beam.Attachment1 = att1
-        beam.Color        = ColorSequence.new(BrzS.bulletTracerColor)
-        beam.Width0       = 0.1
-        beam.Width1       = 0.05
-        beam.Brightness   = 1.0
-        beam.Transparency = NumberSequence.new(0)
-        beam.LightEmission = 0.8
-        beam.LightInfluence = 0
-        beam.FaceCamera   = true
-        beam.TextureSpeed = 2
-        beam.TextureLength = 1
-        beam.Name = "BulletBeam"
-        beam.Parent = workspace
-
-        -- destroy after fade delay
-        local delay = BrzS.bulletTracerFade or 0.5
-        task.delay(delay, function()
-            pcall(function() beam:Destroy(); pStart:Destroy(); pEnd:Destroy() end)
+                return _fbOldNC(self, ...)
+            end))
+            _fbHooked = true
         end)
-    end)
+        if not ok then
+            pcall(function()
+                -- fallback: getrawmetatable
+                local mt = getrawmetatable(game)
+                if mt and setreadonly then
+                    setreadonly(mt, false)
+                    local _old = mt.__namecall
+                    mt.__namecall = newcclosure(function(self, ...)
+                        if not checkcaller() then
+                            local method = getnamecallmethod()
+                            local args = {...}
+                            local FireProjectile  = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("FireProjectile")
+                            local ProjectileInflict = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("ProjectileInflict")
+                            if _fbEnabled and FireProjectile and ProjectileInflict and self == FireProjectile and method == "InvokeServer" then
+                                local shot_id = args[2]; local shot_time = args[3]
+                                task.spawn(function() pcall(function() ProjectileInflict:InvokeServer(Vector3.new(0,0,0), shot_id, shot_time, 0) end) end)
+                            end
+                        end
+                        return _old(self, ...)
+                    end)
+                    setreadonly(mt, true)
+                    _fbHooked = true
+                end
+            end)
+        end
+    end
+
+    WeapSection:Toggle({Title = "fast bullet", Flag = "WepFastBullet", Default = false, Callback = function(s)
+        _fbEnabled = s
+        if s then task.spawn(_hookFastBullet) end
+    end})
 end
+
 -- ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -6964,7 +6959,9 @@ local function _saAutoShootTick()
     if success then
         task.spawn(function()
             _saRemPI:FireServer(
+                tp,
                 tp.CFrame:ToObjectSpace(CFrame.new(tp.Position + Vector3.new(0, 1, 0) * 0.01)),
+                seed,
                 0/0
             )
         end)
@@ -7052,7 +7049,6 @@ RunService.Heartbeat:Connect(function()
     _saResolverTick()
 end)
 
--- ─── anti-aim ─────────────────────────────────────────────────────────────────
 -- State managed by BrzS.antiAimEnabled and sub-options.
 -- Mode: yaw180 = spin HRP 180° each frame so you face backward
 --        jitter  = random ±N° yaw each frame  (confuses aim assist)
