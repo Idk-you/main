@@ -6489,7 +6489,6 @@ local function _applyWaterBypass(enable)
 end
 
 _SA = {
-_SA = {
 
     enabled         = false,
     lastTarget      = nil,
