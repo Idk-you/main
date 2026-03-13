@@ -1,5 +1,8 @@
 local Window  = _G.EH_Window
 local Library = _G.EH_Library
+if not _SA then _SA = {} end
+if not _AA then _AA = {} end
+if not _UG then _UG = {} end
 
 RageTab = Window:Tab("rage")
 
