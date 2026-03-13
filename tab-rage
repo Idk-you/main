@@ -404,4 +404,4 @@ UGSection:Slider({Title = "depth", Flag = "UndergroundDepth", Symbol = "st", Def
 end})
 
 
-_G.EH_RageTab = RageTab
+_G.EH_RageTab   = RageTab
