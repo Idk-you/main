@@ -6830,12 +6830,11 @@ end
 
 -- ─── bullet tracer pool ───────────────────────────────────────────────────────
 -- ─── fast bullet ──────────────────────────────────────────────────
-do
-    local _fbEnabled = false
-    local _fbOldNC = nil
-    local _fbHooked = false
+_fbEnabled = false
+local _fbOldNC = nil
+local _fbHooked = false
 
-    local function _hookFastBullet()
+function _hookFastBullet()
         if _fbHooked then return end
         local ok = pcall(function()
             local FireProjectile  = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("FireProjectile")
@@ -6887,11 +6886,7 @@ do
         end
     end
 
-    WeapSection:Toggle({Title = "fast bullet", Flag = "WepFastBullet", Default = false, Callback = function(s)
-        _fbEnabled = s
-        if s then task.spawn(_hookFastBullet) end
-    end})
-end
+
 
 -- ──────────────────────────────────────────────────────────────────────────────
 
