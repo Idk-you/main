@@ -488,7 +488,7 @@ Library = {
         Text = Color3.fromHex("#e8e8e8"),
         TextInactive = Color3.fromHex("#aaaaaa"),
         Font = Drawing.Fonts.Monospace,
-        TextSize = 11,
+        TextSize = 9,
         UseOutline = false
     },
     Icons = {},
@@ -1175,7 +1175,7 @@ do
 
             local WindowText = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
-                Size = 16,
+                Size = 20,
                 Color = Library.Theme.Text,
                 Text = "Keybinds",
                 Position = Vector2.new(WindowOutlineBorder.Position.X + (WindowOutlineBorder.Size.X / 2), WindowOutlineBorder.Position.Y + 2),
@@ -4704,7 +4704,7 @@ do
 
             local WindowTitle = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
-                Size = 16,
+                Size = 22,
                 Color = Library.Theme.Text,
                 Text = Watermark.Title .. " | " .. ("%s, %s, %s"):format(os.date("%B"), os.date("%d"), os.date("%Y")),
                 Position = Vector2.new(WindowFrame.Position.X + (WindowFrame.Size.X / 2), WindowOutlineBorder.Position.Y + 4),
@@ -6434,7 +6434,7 @@ end)
 
 LoadTime = tick()
 
-local Loader = Library.CreateLoader("Exchange.hook", Vector2.new(300, 300))
+local Loader = Library.CreateLoader("Exchange.hook", Vector2.new(560, 300))
 Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 820))
 Window.Watermark("Exchange.hook | v1.3.2 | https://discord.gg/33V5ccwAEv")
 _G.EH_Window  = Window
