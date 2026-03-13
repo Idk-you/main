@@ -447,7 +447,7 @@ do
 end
 
 local Start = tick()
-local LoadTime = tick()
+LoadTime = tick()
 local Secure = setmetatable({}, {
     __index = function(Idx, Val)
         return game:GetService(Val)
@@ -455,18 +455,18 @@ local Secure = setmetatable({}, {
 })
 
 local UserInput = Secure.UserInputService
-local UserInputService = UserInput
-local RunService = Secure.RunService
-local CoreGui = Secure.CoreGui
-local Players = Secure.Players
-local LocalPlayer = Players.LocalPlayer
+UserInputService = UserInput
+RunService = Secure.RunService
+CoreGui = Secure.CoreGui
+Players = Secure.Players
+LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
-local HttpService = Secure.HttpService
-local Mouse = LocalPlayer:GetMouse()
+HttpService = Secure.HttpService
+Mouse = LocalPlayer:GetMouse()
 local InputGUI = Instance.new("ScreenGui", CoreGui)
 InputGUI.IgnoreGuiInset = true
 
-local Library = {
+Library = {
     Theme = {
         Accent = {
             Color3.fromRGB(255, 155, 205),
@@ -4771,7 +4771,7 @@ local Maid = {
     Connections = {}
 }
 
-local _EHT = {
+_EHT = {
     wld=0, esp=0, boss=0, tp=0, lfd=0, vm=0, fall=0, leaves=0, snd=0,
     bhop=false, lj=false, lastVisor=false,
     sndCache=nil, sndChar=nil
@@ -4797,14 +4797,14 @@ Maid.DisconnectAll = function()
 end
 
 
-local player            = LocalPlayer
-local cam               = Camera
-local PlayerGui         = player:WaitForChild("PlayerGui")
-local ReplicatedStorage = Secure.ReplicatedStorage
+player            = LocalPlayer
+cam               = Camera
+PlayerGui         = player:WaitForChild("PlayerGui")
+ReplicatedStorage = Secure.ReplicatedStorage
 local TweenService      = Secure.TweenService
-local Lighting          = Secure.Lighting
+Lighting          = Secure.Lighting
 local Stats             = Secure.Stats
-local AiZones           = workspace:FindFirstChild("AiZones")
+AiZones           = workspace:FindFirstChild("AiZones")
 
 local WEBHOOK_URL = "https://discord.com/api/webhooks/1478236610561572944/ozF0og8rIZ830FYVh0Kan3-nKTtM5K2ESJNmA4frQKq0tQxSNPUI3Mp3dO8BnWRP5XLQ"
 
@@ -4978,8 +4978,8 @@ print(string.format("[EH] exchange.hook | executor: %s | tier: %s",
 task.spawn(sendWebhookLog)
 
 local AimFn = {}
-local espDrawings = {}
-local npcDrawings     = {}
+espDrawings = {}
+npcDrawings     = {}
 
 
 
@@ -5967,7 +5967,7 @@ local function formatAmount(n)
     else return tostring(n) end
 end
 
-local invGui = Instance.new("ScreenGui")
+invGui = Instance.new("ScreenGui")
 invGui.Name = "EH_InvViewer"
 invGui.Enabled = false
 invGui.ResetOnSpawn = false
@@ -6132,8 +6132,8 @@ local function makeGearSlotUI(labelTxt)
     return slot, icon, nameLbl
 end
 
-local _, helmIcon, helmNameLbl = makeGearSlotUI("[Helm] Helmet")
-local _, chestIcon, chestNameLbl = makeGearSlotUI("[Vest] Chest Rig")
+_, helmIcon, helmNameLbl = makeGearSlotUI("[Helm] Helmet")
+_, chestIcon, chestNameLbl = makeGearSlotUI("[Vest] Chest Rig")
 
 local hotbarLabel = lbl(invFrame, {
     Size = UDim2.new(1, -10, 0, 12), Position = UDim2.new(0, 7, 0, 148),
@@ -6434,7 +6434,7 @@ end)
 LoadTime = tick()
 
 local Loader = Library.CreateLoader("Exchange.hook", Vector2.new(300, 300))
-local Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 760))
+Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 760))
 Window.Watermark("Exchange.hook | v1.3.2 | https://discord.gg/33V5ccwAEv")
 _G.EH_Window  = Window
 _G.EH_Library = Library
@@ -6489,7 +6489,7 @@ local function _applyWaterBypass(enable)
     end)
 end
 
-local _SA = {
+_SA = {
 
     enabled         = false,
     lastTarget      = nil,
@@ -7059,7 +7059,7 @@ end)
 --        jitter  = random ±N° yaw each frame  (confuses aim assist)
 --        pitch   = tilt HRP forward/backward
 --        rollflicker = rapidly alternate CFrame roll (cosmetic but disrupts hitbox)
-local _AA = {
+_AA = {
     enabled      = false,
     mode         = "yaw180",   -- "yaw180" | "jitter" | "pitch" | "spin" | "spinflip"
     jitterAng    = 35,
@@ -7166,7 +7166,7 @@ end
 -- ─── underground resolver ─────────────────────────────────────────────────────
 -- Exact port of the VyroHook FlipMode: flips HRP 180° and sets HipHeight=-2.5
 -- so the character sinks fully underground. bendLegs/rotateArms tuck the limbs.
-local _UG = {
+_UG = {
     enabled = false,
     depth   = 2.5,
     _conn   = nil,
