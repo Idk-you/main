@@ -488,7 +488,7 @@ Library = {
         Text = Color3.fromHex("#e8e8e8"),
         TextInactive = Color3.fromHex("#aaaaaa"),
         Font = Drawing.Fonts.Monospace,
-        TextSize = 9,
+        TextSize = 12,
         UseOutline = false
     },
     Icons = {},
@@ -1128,7 +1128,7 @@ do
 
         do
             local WindowOutline = Utility.AddDrawing("Square", {
-                Size = Vector2.new(190, 32),
+                Size = Vector2.new(175, 28),
                 Thickness = 1,
                 Color = Library.Theme.Outline,
                 Visible = true,
@@ -1175,7 +1175,7 @@ do
 
             local WindowText = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
-                Size = 20,
+                Size = 18,
                 Color = Library.Theme.Text,
                 Text = "Keybinds",
                 Position = Vector2.new(WindowOutlineBorder.Position.X + (WindowOutlineBorder.Size.X / 2), WindowOutlineBorder.Position.Y + 2),
@@ -1186,7 +1186,7 @@ do
 
             local CurrentBinds = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
-                Size = 20,
+                Size = 18,
                 Color = Library.Theme.Text,
                 Text = "",
                 Position = Vector2.new(WindowOutlineBorder.Position.X + (WindowOutlineBorder.Size.X / 2), WindowOutlineBorder.Position.Y + 10),
@@ -1201,7 +1201,7 @@ do
                 if cur == _kbLastBind then return end
                 _kbLastBind = cur
                 CurrentBinds.Text = cur
-                local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= 190 and CurrentBinds.TextBounds.X + 10 or 190, 32 + CurrentBinds.TextBounds.Y - 6) or Vector2.new(190, 32)
+                local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= 175 and CurrentBinds.TextBounds.X + 10 or 175, 28 + CurrentBinds.TextBounds.Y - 6) or Vector2.new(175, 28)
                 WindowOutline.Size = CalcuationSize
                 WindowOutlineBorder.Size = Vector2.new(WindowOutline.Size.X - 2, WindowOutline.Size.Y - 2)
                 WindowOutlineBorder.Position = Vector2.new(WindowOutline.Position.X + 1, WindowOutline.Position.Y + 1)
@@ -4651,7 +4651,7 @@ do
             }, Library.Watermark)
 
             local WatermarkIcon = Utility.AddDrawing("Image", {
-                Size = Vector2.new(26, 30),
+                Size = Vector2.new(22, 26),
                 Position = Vector2.new(WindowOutline.Position.X + 2, WindowOutline.Position.Y + 2),
                 Transparency = 1,
                 ZIndex = 3,
@@ -4704,7 +4704,7 @@ do
 
             local WindowTitle = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
-                Size = 20,
+                Size = 18,
                 Color = Library.Theme.Text,
                 Text = Watermark.Title .. " | " .. ("%s, %s, %s"):format(os.date("%B"), os.date("%d"), os.date("%Y")),
                 Position = Vector2.new(WindowFrame.Position.X + (WindowFrame.Size.X / 2), WindowOutlineBorder.Position.Y + 4),
@@ -4713,7 +4713,7 @@ do
                 Outline = false
             }, Library.Watermark)
 
-            WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + 32, 32)
+            WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + 30, 28)
             WindowTopline.Size = Vector2.new(WindowOutline.Size.X - 2, 2)
             WindowFrame.Size = Vector2.new(WindowOutline.Size.X - 2, WindowOutline.Size.Y - 2)
 
@@ -4737,7 +4737,7 @@ do
                     if newTxt ~= _wmLast then
                         WindowTitle.Text = newTxt
                         _wmLast = newTxt
-                        WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + 36, 32)
+                        WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + 34, 28)
                         WindowOutlineBorder.Size = WindowOutline.Size
                         WindowTopline.Size = Vector2.new(WindowOutline.Size.X - 2, 1)
                         WindowFrame.Size = Vector2.new(WindowOutline.Size.X - 2, WindowOutline.Size.Y - 2)
