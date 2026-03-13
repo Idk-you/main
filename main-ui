@@ -1,5 +1,5 @@
 local _KS_done = false
-
+do
     local HttpService  = game:GetService("HttpService")
     local UIS          = game:GetService("UserInputService")
     local RS           = game:GetService("RunService")
@@ -12,7 +12,7 @@ local _KS_done = false
 
     local function ensureFolder()
         pcall(function() if isfolder and not isfolder(FOLDER) then makefolder(FOLDER) end end)
-
+    end
     local function saveKey(k, h)
         pcall(function()
             if not writefile then return end
@@ -20,7 +20,7 @@ local _KS_done = false
             writefile(FOLDER.."/saved_key.txt",  k)
             writefile(FOLDER.."/saved_hwid.txt", h)
         end)
-
+    end
     local function loadSaved()
         local out = nil
         pcall(function()
@@ -31,17 +31,18 @@ local _KS_done = false
             if isfile(kf) and isfile(hf) then
                 local k, h = readfile(kf), readfile(hf)
                 if k~="" and h~="" then out={key=k,hwid=h} end
-
+            end
         end)
         return out
-
+    end
     local function clearSaved()
         pcall(function()
             if not delfile then return end
             for _, f in ipairs({FOLDER.."/saved_key.txt",FOLDER.."/saved_hwid.txt"}) do
                 pcall(function() if isfile(f) then delfile(f) end end)
-
+            end
         end)
+    end
 
     local function getHWID()
         local h = ""
@@ -68,7 +69,7 @@ local _KS_done = false
         end)
         if h=="" then h="MACHINE_UNKNOWN" end
         return h
-
+    end
     local HWID = getHWID()
 
     local function logDiscord(title, color, fields)
@@ -76,7 +77,7 @@ local _KS_done = false
             local flds={}
             for _,f in ipairs(fields or {}) do
                 table.insert(flds,{name=tostring(f[1]),value=tostring(f[2]),inline=true})
-
+            end
             local body = HttpService:JSONEncode({
                 username="Exchange.hook Keys",
                 embeds={{title=title,color=color or 3066993,fields=flds,
@@ -86,6 +87,7 @@ local _KS_done = false
             if req then req({Url=WEBHOOK_URL,Method="POST",
                 Headers={["Content-Type"]="application/json"},Body=body}) end
         end)
+    end
 
     local function fetchKey(key)
         local ok,resp = pcall(function() return game:HttpGet(FIREBASE_URL.."keys/"..key..".json") end)
@@ -94,7 +96,7 @@ local _KS_done = false
         if not ok2 or not data then return nil end
         if data.hwid=="" then data.hwid=nil end
         return data
-
+    end
     local function claimKey(key)
         pcall(function()
             local req=(typeof(request)=="function" and request) or nil
@@ -102,12 +104,13 @@ local _KS_done = false
             req({Url=FIREBASE_URL.."keys/"..key..".json", Method="PUT",
                 Body=HttpService:JSONEncode({hwid=HWID,used=true,expiry="2099-12-31"})})
         end)
-
+    end
     local function isExpired(exp)
         if not exp then return false end
         local Y,M,D=exp:match("(%d+)-(%d+)-(%d+)")
         if not Y then return false end
         return os.time()>os.time({year=tonumber(Y),month=tonumber(M),day=tonumber(D)})
+    end
 
     local function tryAuto()
         local sv=loadSaved()
@@ -120,14 +123,15 @@ local _KS_done = false
         if data.used and data.hwid and data.hwid~=HWID and sv.hwid==HWID then
             -- key is bound to a different machine entirely
             clearSaved(); return false
-
+        end
         if data.used and (data.hwid==HWID or data.hwid==sv.hwid) and not isExpired(data.expiry) then
             -- re-save with current HWID in case account changed
             saveKey(sv.key, HWID)
             logDiscord("[Sync] Auto-Validated",3447003,{{"Key",sv.key},{"HWID",HWID}})
             return true
-
+        end
         clearSaved(); return false
+    end
 
     local function showUI()
         local C={
@@ -152,9 +156,10 @@ local _KS_done = false
             local o=Drawing.new(t)
             for k,v in pairs(p) do pcall(function() o[k]=v end) end
             o.Visible=true; drws[#drws+1]=o; return o
-
+        end
         local function kill()
             for _,o in ipairs(drws) do pcall(function() o:Remove() end) end
+        end
 
         local bg    = D("Square",{Size=Vector2.new(W,H),   Position=Vector2.new(px,py),   Color=C.out,  Filled=true,  ZIndex=50})
         local bord  = D("Square",{Size=Vector2.new(W-2,H-2),Position=Vector2.new(px+1,py+1),Color=C.acc,Filled=true,ZIndex=51})
@@ -196,6 +201,7 @@ local _KS_done = false
             bbg.Position=Vector2.new(px+W/2-65,py+106); btxt.Position=Vector2.new(px+W/2,py+112)
             stxt.Position=Vector2.new(px+W/2,py+144); sep2.Position=Vector2.new(px+8,py+H-30)
             foot.Position=Vector2.new(px+W/2,py+H-20)
+        end
 
         local inp_str = ""
         local focused = false
@@ -209,7 +215,7 @@ local _KS_done = false
         local function inR(ox2,oy2,ow,oh)
             local m=UIS:GetMouseLocation()
             return m.X>ox2 and m.X<ox2+ow and m.Y>oy2 and m.Y<oy2+oh
-
+        end
         local function doValidate()
             local k=inp_str:gsub("%s+","")
             if k=="" then setStat("enter a key first",C.err); return end
@@ -223,13 +229,14 @@ local _KS_done = false
                 if not data.used then
                     claimKey(k)
                     logDiscord("[OK] Activated",3066993,{{"Key",k},{"HWID",HWID},{"Expiry",data.expiry or "Lifetime"}})
-
+                else
                     logDiscord("[Sync] Reused",3447003,{{"Key",k},{"HWID",HWID}})
-
+                end
                 saveKey(k,HWID)
                 setStat("access granted  -  loading...",C.ok)
                 task.wait(1.5); done=true; kill(); keyEvent:Fire()
             end)
+        end
 
         local cur_pos = 0
 
@@ -241,6 +248,7 @@ local _KS_done = false
             local tw = ftxt.TextBounds.X
             ftxt.Text = inp_str
             cur.Position = Vector2.new(px + 14 + tw, py + 77)
+        end
 
         local function insertAt(text)
             local before = inp_str:sub(1, cur_pos)
@@ -249,6 +257,7 @@ local _KS_done = false
             cur_pos = math.min(cur_pos + #text, #new)
             inp_str = new
             updInp()
+        end
 
         local function deleteAt()
             if cur_pos == 0 then return end
@@ -257,6 +266,7 @@ local _KS_done = false
             inp_str = before .. after
             cur_pos = cur_pos - 1
             updInp()
+        end
 
         local function doPaste()
             local pasted = ""
@@ -266,7 +276,7 @@ local _KS_done = false
                     pasted = getclipboard() or ""
                 elseif typeof(Clipboard) == "table" and typeof(Clipboard.get) == "function" then
                     pasted = Clipboard.get() or ""
-
+                end
             end)
             -- method 2: visible TextBox the user can right-click paste into
             if pasted == "" then
@@ -312,12 +322,13 @@ local _KS_done = false
                     tb:ReleaseFocus()
                     sg:Destroy()
                 end)
-
+            end
             if pasted ~= "" then
                 -- strip whitespace and newlines
                 pasted = pasted:match("^%s*(.-)%s*$") or pasted
                 insertAt(pasted)
-
+            end
+        end
 
         local conns={}
         local function c(sig,fn) local co=sig:Connect(fn); conns[#conns+1]=co end
@@ -333,8 +344,9 @@ local _KS_done = false
                 if inR(px+W/2-65, py+106, 130, 24) then doValidate() end
                 if inR(px+2, py+2, W-4, 27) then
                     drag.on = true; drag.lx = m.X; drag.ly = m.Y
-
-
+                end
+                return
+            end
 
             if not focused or inp.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
@@ -355,16 +367,19 @@ local _KS_done = false
                     local after  = inp_str:sub(cur_pos + 2)
                     inp_str = before .. after
                     updInp()
+                end
 
             elseif kc == Enum.KeyCode.Left then
                 if cur_pos > 0 then
                     cur_pos = ctrl and 0 or (cur_pos - 1)
                     updInp()
+                end
 
             elseif kc == Enum.KeyCode.Right then
                 if cur_pos < #inp_str then
                     cur_pos = ctrl and #inp_str or (cur_pos + 1)
                     updInp()
+                end
 
             elseif kc == Enum.KeyCode.Home then
                 cur_pos = 0; updInp()
@@ -378,6 +393,8 @@ local _KS_done = false
             elseif ctrl and kc == Enum.KeyCode.A then
 
                 cur_pos = #inp_str; updInp()
+
+            else
 
                 if ctrl then return end
 
@@ -394,9 +411,10 @@ local _KS_done = false
                 elseif n == "Period"    then ch = sh and ">"  or "."
                 elseif n == "Slash"     then ch = sh and "?"  or "/"
                 elseif n == "Semicolon" then ch = sh and ":"  or ";"
+                end
 
                 if ch then insertAt(ch) end
-
+            end
         end)
         c(UIS.InputChanged, function(inp)
             if done or not drag.on then return end
@@ -404,7 +422,7 @@ local _KS_done = false
                 local m=UIS:GetMouseLocation()
                 move(m.X-drag.lx, m.Y-drag.ly)
                 drag.lx=m.X; drag.ly=m.Y
-
+            end
         end)
         c(UIS.InputEnded, function(inp)
             if inp.UserInputType==Enum.UserInputType.MouseButton1 then drag.on=false end
@@ -415,38 +433,40 @@ local _KS_done = false
             cur.Visible=focused and bon
             bbg.Color=inR(px+W/2-65,py+106,130,24) and Color3.fromRGB(255,185,220) or C.acc
         end)
+    end
 
     if tryAuto() then
         print("[EH] exchange.hook | auto-validated, skipping key UI")
         _KS_done = true
-
+    else
         print("[EH] exchange.hook | waiting for key...")
         showUI()
         keyEvent.Event:Wait()
         _KS_done = true
-
+    end
+end
 
 local Start = tick()
 local LoadTime = tick()
 local Secure = setmetatable({}, {
     __index = function(Idx, Val)
         return game:GetService(Val)
-
+    end
 })
 
 local UserInput = Secure.UserInputService
-UserInputService = UserInput
-RunService = Secure.RunService
-CoreGui = Secure.CoreGui
-Players = Secure.Players
-LocalPlayer = Players.LocalPlayer
+local UserInputService = UserInput
+local RunService = Secure.RunService
+local CoreGui = Secure.CoreGui
+local Players = Secure.Players
+local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
-HttpService = Secure.HttpService
-Mouse = LocalPlayer:GetMouse()
+local HttpService = Secure.HttpService
+local Mouse = LocalPlayer:GetMouse()
 local InputGUI = Instance.new("ScreenGui", CoreGui)
 InputGUI.IgnoreGuiInset = true
 
-Library = {
+local Library = {
     Theme = {
         Accent = {
             Color3.fromRGB(255, 155, 205),
@@ -503,17 +523,21 @@ getgenv().Library = Library
 getgenv().Utility = Utility
 InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService("CoreGui")
 
+do
     Utility.AddInstance = function(NewInstance, Properties)
         local NewInstance = Instance.new(NewInstance)
 
         for Index, Value in pairs(Properties) do
             NewInstance[Index] = Value
+        end
 
         return NewInstance
+    end
 
     Utility.CLCheck = function()
 
         Library.Input.Caplock = false
+    end
 
     Utility.Loop = function(Delay, Call)
         local Callback = typeof(Call) == "function" and Call or function() end
@@ -525,10 +549,11 @@ InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService
                 end)
 
                 if Error then
-
-
-
+                    return
+                end
+            end
         end)
+    end
 
     Utility.RemoveDrawing = function(Instance, Location)
         local SpecificDrawing = 0
@@ -539,14 +564,16 @@ InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService
             if Value[1] == Instance then
                 if Value[1] then
                     Value[1]:Remove()
-
+                end
                 if Value[2] then
                     Value[2] = nil
-
+                end
                 SpecificDrawing = Index
-
+            end
+        end
 
         table.remove(Location, table.find(Location, Location[SpecificDrawing]))
+    end
 
     Utility.AddConnection = function(Type, Callback)
         local Connection = Type:Connect(Callback)
@@ -554,10 +581,12 @@ InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService
         Library.Connections[#Library.Connections + 1] = Connection
 
         return Connection
+    end
 
     Utility.Round = function(Num, Float)
         local Bracket = 1 / Float;
         return math.floor(Num * Bracket) / Bracket;
+    end
 
     Utility.AddDrawing = function(Instance, Properties, Location)
         local InstanceType = Instance
@@ -568,38 +597,43 @@ InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService
             if InstanceType == "Text" then
                 if Index == "Font" then
                     pcall(function() Instance.Font = Library.Theme.Font end)
-
+                end
                 if Index == "Size" then
                     pcall(function() Instance.Size = Library.Theme.TextSize end)
-
-
+                end
+            end
+        end
 
         pcall(function()
             if Properties.ZIndex ~= nil then
                 Instance.ZIndex = Properties.ZIndex + 20
-
+            else
                 Instance.ZIndex = 20
-
+            end
         end)
 
         Location = Location or Library.Drawings
         if InstanceType == "Image" then
             Location[#Location + 1] = {Instance, true}
-
+        else
             Location[#Location + 1] = {Instance}
+        end
 
         return Instance
+    end
 
     Utility.OnMouse = function(Instance)
         local Mouse = UserInput:GetMouseLocation()
         if Instance.Visible and (Mouse.X > Instance.Position.X) and (Mouse.X < Instance.Position.X + Instance.Size.X) and (Mouse.Y > Instance.Position.Y) and (Mouse.Y < Instance.Position.Y + Instance.Size.Y) then
             if Library.WindowVisible then
                 return true
-
-
+            end
+        end
+    end
 
     Utility.Rounding = function(Num, DecimalPlaces)
         return tonumber(string.format("%." .. (DecimalPlaces or 0) .. "f", Num))
+    end
 
     Utility.AddDrag = function(Sensor, List)
         local DragUtility = {
@@ -617,23 +651,23 @@ InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService
                         for _, item in ipairs(Library._clickables) do
                             if item.hitbox and Utility.OnMouse(item.hitbox) then
                                 onClickable = true; break
-
-
-
+                            end
+                        end
+                    end
                     if not onClickable and not Library._dragSuppressed then
                         DragUtility.Dragging = true
                         DragUtility.PrevPos = UserInput:GetMouseLocation()
                         DragUtility.PendingDX = 0
                         DragUtility.PendingDY = 0
-
-
-
+                    end
+                end
+            end
         end)
 
         Utility.AddConnection(UserInput.InputEnded, function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                 DragUtility.Dragging = false
-
+            end
         end)
 
         Utility.AddConnection(UserInput.InputChanged, function(Input)
@@ -642,7 +676,7 @@ InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService
             if DragUtility.Dragging then
                 DragUtility.PendingDX = DragUtility.PendingDX + (cur.X - DragUtility.PrevPos.X)
                 DragUtility.PendingDY = DragUtility.PendingDY + (cur.Y - DragUtility.PrevPos.Y)
-
+            end
             DragUtility.PrevPos = cur
         end)
 
@@ -650,8 +684,8 @@ InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService
         Utility.AddConnection(RunService.RenderStepped, function()
             if not DragUtility.Dragging then
                 _dragCache = nil
-
-
+                return
+            end
             local dx, dy = DragUtility.PendingDX, DragUtility.PendingDY
             if dx == 0 and dy == 0 then return end
             DragUtility.PendingDX = 0
@@ -662,16 +696,17 @@ InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService
                 for _, Value in pairs(List) do
                     if Value ~= nil and Value[1] ~= nil then
                         _dragCache[#_dragCache + 1] = Value[1]
-
-
-
+                    end
+                end
+            end
             local n = #_dragCache
             for i = 1, n do
                 local d = _dragCache[i]
                 local p = d.Position
                 d.Position = Vector2.new(p.X + dx, p.Y + dy)
-
+            end
         end)
+    end
 
     Utility.AddCursor = function(Instance)
 
@@ -682,25 +717,30 @@ InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService
             if Type == "Accent" then
                 Cursor.Color = Color
                 CursorOutline.Color = Color
-
+            end
         end)
+
+    end
 
     Utility.MiddlePos = function(Instance)
         return Vector2.new(
             (Camera.ViewportSize.X / 2) - (Instance.Size.X / 2),
             (Camera.ViewportSize.Y / 2) - (Instance.Size.Y / 2)
         )
+    end
 
     Utility.SaveConfig = function(Config)
         writefile(
             "Abyss/Configs/" .. tostring(game.PlaceId) .. "/" .. Config .. ".json",
             HttpService:JSONEncode(UISettings.Flags)
         )
+    end
 
     Utility.DeleteConfig = function(Config)
         delfile(
             "Abyss/Configs/" .. tostring(game.PlaceId) .. "/" .. Config .. ".json"
         )
+    end
 
     Utility.LoadConfig = function(Config)
         local Config = HttpService:JSONDecode(readfile("Abyss/Configs/" .. tostring(game.PlaceId) .. "/" .. Config .. ".json"))
@@ -714,35 +754,40 @@ InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService
                 Library.Items[Index]:SetHue(Value[1])
                 Library.Items[Index]:SetSaturationX(Value[2])
                 Library.Items[Index]:SetSaturationY(Value[3])
-
+            else
                 Library.Items[Index]:Set(Value)
-
+            end
+        end
 
         rconsoleinfo("Debug: Loaded a config! 0 error.")
+    end
 
     Utility.AddFolder = function(GetFolder)
         local Folder = isfolder(GetFolder)
 
         if Folder then
-
-
+            return
+        else
             makefolder(GetFolder)
             return true
-
+        end
+    end
 
     Utility.AddImage = function(Image, Url, UI)
         local ImageFile = nil
 
         if isfile(Image) then
             ImageFile = readfile(Image)
-
+        else
             ImageFile = game:HttpGet(Url)
             writefile(Image, ImageFile)
+        end
 
         return ImageFile
+    end
+end
 
-
-
+do
     function Library.CreateLoader(Title, WindowSize)
         local Window = {
             Max = 2, Current = 0
@@ -864,6 +909,7 @@ InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService
         Window.SetText = function(Val, Txt)
             SliderFrame.Size = Vector2.new(((SliderInline.Size.X - 2) / (Window.Max / math.clamp(Val, 0, Window.Max))), SliderInline.Size.Y - 2)
             WindowText.Text = Txt
+        end
 
         SliderInline.Position = Vector2.new(WindowOutline.Position.X + (WindowOutline.Size.X / 2) - (SliderOutline.Size.X / 2), (WindowOutline.Position.Y + WindowOutline.Size.Y) - 30)
         SliderOutline.Position = Vector2.new(SliderInline.Position.X + 1, SliderInline.Position.Y + 1)
@@ -915,8 +961,10 @@ InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService
         UserInput.MouseIconEnabled = false
 
         return Window
+    end
+end
 
-
+do
 
     function Library:ChangeVisible(State)
         Library.WindowVisible = State
@@ -925,50 +973,57 @@ InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService
         for Idx, Val in pairs(Library.Drawings) do
             if Val[2] then
                 Val[1].Transparency = Library.WindowVisible and 1 or 0
-
+            else
                 if Val[1].Color ~= Library.Theme.Hitbox then
                     Val[1].Transparency = Library.WindowVisible and 1 or 0
-
-
+                end
+            end
+        end
 
         for Idx, Val in pairs(Library.Ignores) do
             pcall(function()
                 Val[1].Transparency = Library.WindowVisible and 1 or 0
             end)
+        end
+
+        
 
         for Idx, Val in pairs(Library.Watermark) do
             pcall(function()
                 Val[1].Visible = Library.WindowVisible
             end)
+        end
 
         if Library._uiBlur ~= nil then
             pcall(function()
                 local ts = game:GetService("TweenService")
                 ts:Create(Library._uiBlur, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Size = Library.WindowVisible and 12 or 0}):Play()
             end)
-
+        end
+    end
 
     function Library:UpdateTheme(Config)
         if Config.Accent ~= nil then
             Library.Theme.Accent[1] = Config.Accent
             Library.Communication:Fire("Accent", Config.Accent)
-
+        end
         if Config.Outline ~= nil then
             Library.Theme.Outline = Config.Outline
             Library.Communication:Fire("Outline", Config.Outline)
-
+        end
         if Config.Inline ~= nil then
             Library.Theme.Inline = Config.Inline
             Library.Communication:Fire("Inline", Config.Inline)
-
+        end
         if Config.LightContrast ~= nil then
             Library.Theme.LightContrast = Config.LightContrast
             Library.Communication:Fire("LightContrast", Config.LightContrast)
-
+        end
         if Config.DarkContrast ~= nil then
             Library.Theme.DarkContrast = Config.DarkContrast
             Library.Communication:Fire("DarkContrast", Config.DarkContrast)
-
+        end
+    end
 
     function Library.SelfDestruct()
 
@@ -976,32 +1031,40 @@ InputGUI.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService
 
         for Index, Value in pairs(Library.Connections) do
             Value:Disconnect()
+        end
 
         for Index, Value in pairs(Library.Drawings) do
             if Value[1] then
                 Value[1]:Remove()
-
+            end
+        end
 
         for Index, Value in pairs(Library.Watermark) do
             if Value[1] then
                 Value[1]:Remove()
-
+            end
+        end
 
         for Index, Value in pairs(Library.Keybind) do
             if Value[1] then
                 Value[1]:Remove()
-
+            end
+        end
 
         for Index, Value in pairs(Library.Ignores) do
             if Value[1] then
                 Value[1]:Remove()
-
+            end
+        end
 
         Library.Drawings = {}
         Library.Watermark = {}
         Library.Keybind = {}
         Library.Ignores = {}
 
+    end
+
+end
 
 Library._clickables = {}
 Library._hoverables = {}
@@ -1018,19 +1081,19 @@ UserInput.InputBegan:Connect(function(Input, _Useless)
         if item.dropdowns and item.side then
             for _, v in pairs(item.dropdowns[item.side]) do
                 if v then blocked = true; break end
-
-
+            end
+        end
         if not blocked and Utility.OnMouse(item.hitbox) then
             Library._dragSuppressed = true
             item.callback(); return
-
-
+        end
+    end
 end)
 
 UserInput.InputEnded:Connect(function(Input)
     if Input.UserInputType == Enum.UserInputType.MouseButton1 then
         Library._dragSuppressed = false
-
+    end
 end)
 
 UserInput.InputChanged:Connect(function(Input)
@@ -1042,10 +1105,11 @@ UserInput.InputChanged:Connect(function(Input)
             pcall(function()
                 item.inline.Color = Utility.OnMouse(item.hitbox) and Library.Theme.Accent[1] or Library.Theme.Inline
             end)
-
-
+        end
+    end
 end)
 
+do
     function Library.Window(Title, Size)
         local Window = {
             Notification = 0,
@@ -1062,6 +1126,7 @@ end)
             Visible = true,
         }, Library.Ignores)
 
+        do
             local WindowOutline = Utility.AddDrawing("Square", {
                 Size = Vector2.new(120, 20),
                 Thickness = 1,
@@ -1159,8 +1224,9 @@ end)
                     WindowFrame.Color = Color
                 elseif Type == "Text" then
                     WindowText.Color = Color
-
+                end
             end)
+        end
 
         local Anime = Utility.AddDrawing("Image", {
             Transparency = 0.5,
@@ -1297,7 +1363,7 @@ end)
                 WindowTitle.Color = Color
             elseif Type == "Inline" then
                 SecondBorderInline.Color = Color
-
+            end
         end)
 
         Window["PageCover"] = SecondBorderInline
@@ -1320,9 +1386,11 @@ end)
             )
 
             Anime.Position = Vector2.new(Camera.ViewportSize.X - 400, Camera.ViewportSize.Y - Anime.Size.Y)
+        end
 
         function Window.ToggleAnime(State)
             Anime.Visible = State
+        end
 
         function Window.SendNotification(Type, Title, Duration)
             local Notification, Removed = Window.Notification, false
@@ -1418,7 +1486,7 @@ end)
                         NotificationLeftline.Position = Vector2.new(NotificationOutline.Position.X, NotificationOutline.Position.Y)
                     end)
                     task.wait()
-
+                end
             end)
 
             Utility.AddConnection(Library.Communication.Event, function(Type)
@@ -1432,7 +1500,7 @@ end)
                         NotificationImage.Position = NotificationOutline.Position
                         NotificationLeftline.Position = Vector2.new(NotificationOutline.Position.X, NotificationOutline.Position.Y)
                     end)
-
+                end
             end)
 
             Window.Notification += 1
@@ -1454,11 +1522,13 @@ end)
 
                 Window.Notification -= 1
             end)
+        end
 
         function Window:RefreshPages()
             for Index, Value in pairs(Window.Tabs) do
                 Value:Resize(Index)
-
+            end
+        end
 
         function Window:SwitchTab(Tab)
             for Index, Value in pairs(self.Tabs) do
@@ -1467,7 +1537,8 @@ end)
 
                 for _, Render in pairs(Value["Render"]) do
                     Render.Visible = false
-
+                end
+            end
 
             Tab["TabOutline"].Color = Library.Theme.LightContrast
             Tab["TabTitle"].Color = Library.Theme.Text
@@ -1480,6 +1551,7 @@ end)
 
             for _, Render in pairs(Tab["Render"]) do
                 Render.Visible = true
+            end
 
             local odx = Library._totalDragX or 0
             local ody = Library._totalDragY or 0
@@ -1491,10 +1563,11 @@ end)
                         if not Library._offsetDrawings[Render] then
                             Library._offsetDrawings[Render] = true
                             Render.Position = Vector2.new(Render.Position.X + odx, Render.Position.Y + ody)
-
-
-
-
+                        end
+                    end
+                end
+            end
+        end
 
         function Window:Tab(Title)
             local Tab = {
@@ -1546,7 +1619,7 @@ end)
                     TabTitle.Color = Color
                 elseif Type == "Inline" then
                     TabInline.Color = Color
-
+                end
             end)
 
             function Tab:Install()
@@ -1564,16 +1637,18 @@ end)
                     DisableLine.Position = Vector2.new(TabOutline.Position.X, TabOutline.Position.Y + TabOutline.Size.Y)
 
                     Window.SelectedTab = Tab.CurrentTab
+                end
 
                 TabTitle.Position = Vector2.new(TabOutline.Position.X + (TabOutline.Size.X / 2), TabOutline.Position.Y + (TabOutline.Size.Y / 2) - 7)
+            end
 
             function Tab:RemoveDrawing(Instance)
                 local SpecificDrawing = 0
                 for Index, Value in pairs(Tab["Render"]) do
                     if Value == Instance then
                         SpecificDrawing = Index
-
-
+                    end
+                end
                 table.remove(Tab["Render"], table.find(Tab["Render"], Tab["Render"][SpecificDrawing]))
 
                 local SpecificDrawing2 = 0
@@ -1581,14 +1656,15 @@ end)
                     if Value[1] == Instance then
                         if Value[1] then
                             Value[1]:Remove()
-
+                        end
                         if Value[2] then
                             Value[2] = nil
-
+                        end
                         SpecificDrawing2 = Index
-
-
+                    end
+                end
                 table.remove(Library.Drawings, table.find(Library.Drawings, Library.Drawings[SpecificDrawing2]))
+            end
 
             function Tab:Section(Title, Side)
                 local Section = {
@@ -1649,7 +1725,7 @@ end)
                         SectionTitle.Color = Color
                     elseif Type == "Inline" then
                         SectionInline.Color = Color
-
+                    end
                 end)
 
                 function Section:UpdateSizeY(SizeY)
@@ -1657,6 +1733,7 @@ end)
 
                     SectionOutline.Size = Vector2.new(SectionInline.Size.X - 2, SectionInline.Size.Y - 2)
                     SectionOutline.Position = Vector2.new(SectionInline.Position.X + 1, SectionInline.Position.Y + 1)
+                end
 
                 Tab.SectionAxis = {
                     (Side == "Left" or _isFull) and SectionInline.Position.Y + SectionInline.Size.Y or Tab.SectionAxis[1],
@@ -1732,6 +1809,7 @@ end)
                         ToggleOutline.Color = Toggle.Toggled and Library.Theme.Accent[1] or Library.Theme.DarkContrast
                         Library.Flags[Options.Flag] = Toggle.Toggled
                         Toggle.Callback(Toggle.Toggled)
+                    end
 
                     Library._clickables = Library._clickables or {}
                     Library._hoverables = Library._hoverables or {}
@@ -1742,7 +1820,7 @@ end)
                         callback = function()
                             Toggle.Toggled = not Toggle.Toggled
                             Toggle:Set(Toggle.Toggled)
-
+                        end
                     }
                     Toggle._hitbox = ToggleHitbox
                     Toggle._clickEntry = _clickEntry
@@ -1757,14 +1835,14 @@ end)
                             ToggleOutline.Color = Color
                             if Options.Type == "Dangerous" then
                                 ToggleTitle.Color = Color
-
+                            end
                         elseif Type == "LightContrast" and not Toggle.Toggled then
                             ToggleOutline.Color = Color
                         elseif Type == "Text" then
                             ToggleTitle.Color = Color
                         elseif Type == "Inline" then
                             ToggleInline.Color = Color
-
+                        end
                     end)
 
                     Section.ContentAxis = Section.ContentAxis + ToggleOutline.Size.Y + 8
@@ -1884,7 +1962,7 @@ end)
                         Utility.AddConnection(Library.Communication.Event, function(Type, Color)
                             if Type == "Accent" then
                                 InternalTopline.Color = Color
-
+                            end
                         end)
 
                         local InternalTitle = Utility.AddDrawing("Text", {
@@ -2094,6 +2172,7 @@ end)
                             InternalOutlineHuePicker.Visible = State
                             InternalHuePicker.Visible = State
                             Tab.Dropdowns[Side][ToggleTitle.Text] = State
+                        end
 
                         Utility.AddConnection(Library.Communication.Event, function(Type, Color)
                             if Type == "Accent" then
@@ -2111,7 +2190,7 @@ end)
                                 InternalOutline.Color = Color
                                 InternalOutlineHex.Color = Color
                                 InternalInline.Color = Color
-
+                            end
                         end)
 
                         Colorpicker.Offsets.X = InternalBase.Position.X
@@ -2139,7 +2218,8 @@ end)
                             if not Options.Visual then
                                 Library.Flags[Colorpicker.Flag] = HSVColor
                                 Colorpicker.Callback(HSVColor)
-
+                            end
+                        end
 
                         function Colorpicker:RefreshHue()
                             local _cm = UserInput:GetMouseLocation()
@@ -2150,6 +2230,7 @@ end)
                                 Value = ValueHue,
                                 Percent = PercentHue
                             })
+                        end
 
                         function Colorpicker:SetSaturationX(Options)
                             local PercentX = Options.Percent or Options.Value
@@ -2170,7 +2251,8 @@ end)
                             if not Options.Visual then
                                 Library.Flags[Colorpicker.Flag] = HSVColor
                                 Colorpicker.Callback(HSVColor)
-
+                            end
+                        end
 
                         function Colorpicker:SetSaturationY(Options)
                             local PercentY = Options.Percent or 1 - Options.Value
@@ -2191,7 +2273,8 @@ end)
                             if not Options.Visual then
                                 Library.Flags[Colorpicker.Flag] = HSVColor
                                 Colorpicker.Callback(HSVColor)
-
+                            end
+                        end
 
                         function Colorpicker:RefreshSaturation()
                             local _cm = UserInput:GetMouseLocation()
@@ -2210,32 +2293,33 @@ end)
                                 Value = ValueY,
                                 Percent = PercentY
                             })
+                        end
 
                         Utility.AddConnection(UserInput.InputEnded, function(Input, _Useless)
                             for Index, Value in pairs(Tab.Dropdowns[Side]) do
                                 if Index ~= ToggleTitle.Text and Value then
-
-
-
+                                    return
+                                end
+                            end
                             if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                                 Colorpicker.HueDragging = false
                                 Colorpicker.SaturationDragging = false
-
+                            end
                         end)
 
                         Utility.AddConnection(UserInput.InputChanged, function(Input, _Useless)
                             if Input.UserInputType == Enum.UserInputType.MouseMovement then
                                 for Index, Value in pairs(Tab.Dropdowns[Side]) do
                                     if Index ~= ToggleTitle.Text and Value then
-
-
-
+                                        return
+                                    end
+                                end
                                 if Colorpicker.HueDragging then
                                     Colorpicker:RefreshHue()
                                 elseif Colorpicker.SaturationDragging then
                                     Colorpicker:RefreshSaturation()
-
-
+                                end
+                            end
                         end)
 
                         Utility.AddConnection(UserInput.InputBegan, function(Input, _Useless)
@@ -2243,9 +2327,9 @@ end)
                             if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                                 for Index, Value in pairs(Tab.Dropdowns[Side]) do
                                     if Index ~= ToggleTitle.Text and Value then
-
-
-
+                                        return
+                                    end
+                                end
                                 if Utility.OnMouse(ColorpickerInline) then
                                     Colorpicker.Dropped = not Colorpicker.Dropped
                                     Tab.Dropdowns[Side][ToggleTitle.Text] = Colorpicker.Dropped
@@ -2263,13 +2347,13 @@ end)
                                         Colorpicker:SetHue({Value = Colorpicker.Colors.HSV[1]})
                                         Colorpicker:SetSaturationX({Value = Colorpicker.Colors.HSV[2]})
                                         Colorpicker:SetSaturationY({Value = Colorpicker.Colors.HSV[3]})
-
-
+                                    end
+                                else
                                     Colorpicker.Dropped = false
                                     Tab.Dropdowns[Side][ToggleTitle.Text] = Colorpicker.Dropped
                                     Colorpicker:Drop(Colorpicker.Dropped)
-
-
+                                end
+                            end
                         end)
 
                         local _cpRainbowTimer = 0
@@ -2295,6 +2379,7 @@ end)
                         Colorpicker:Drop(false)
 
                         return Colorpicker
+                    end
 
                     function Toggle:Keybind(Options)
                         local Keybind = {
@@ -2318,6 +2403,7 @@ end)
                         if Keybind.StateType == "Always" then
                             Keybind.Callback(Keybind.State, Keybind.Key)
                             Library.Flags[Options.Flag] = true
+                        end
 
                         Keybind.Shorten = Library.Keys.Shortened[Keybind.Key.Name] or Keybind.Key.Name
 
@@ -2330,6 +2416,7 @@ end)
                                 math.max(10, Toggle._hitbox.Size.X - 52),
                                 Toggle._hitbox.Size.Y
                             )
+                        end
 
                         local KeybindInline = Utility.AddDrawing("Square", {
                             Position = Vector2.new(SectionInline.Position.X + SectionInline.Size.X - 40 - 6, SectionInline.Position.Y + Keybind.Axis + 2),
@@ -2506,6 +2593,7 @@ end)
                             KeybindAlwaysOutline.Visible = State
                             KeybindAlwaysGradient.Visible = State
                             KeybindAlwaysValue.Visible = State
+                        end
 
                         function Keybind:SetStateType(State)
                             if State == "Hold" then
@@ -2520,13 +2608,14 @@ end)
                                 KeybindAlwaysValue.Color = Library.Theme.Text
                                 KeybindToggleValue.Color = Library.Theme.Accent[1]
                                 KeybindHoldValue.Color = Library.Theme.Text
-
+                            else
                                 Keybind.StateType = "Always"
 
                                 KeybindAlwaysValue.Color = Library.Theme.Accent[1]
                                 KeybindToggleValue.Color = Library.Theme.Text
                                 KeybindHoldValue.Color = Library.Theme.Text
-
+                            end
+                        end
 
                         Utility.AddConnection(UserInput.InputBegan, function(Input, _Useless)
                             if not Library.WindowVisible then return end
@@ -2539,39 +2628,39 @@ end)
                                     Keybind.Shorten = Library.Keys.Shortened[Keybind.Key.Name] or Keybind.Key.Name
                                     Window.BindList = string.gsub(Window.BindList, "\n%[" .. Old .. "%] " .. Options.Title, ("\n[%s] %s"):format(Keybind.Shorten, Options.Title))
                                     KeybindValue.Text = Keybind.Binding and "[...]" or Keybind.Shorten
-
+                                end
                                 if Utility.OnMouse(KeybindHoldInline) then
                                     Keybind:SetStateType("Hold")
-
+                                end
                                 if Utility.OnMouse(KeybindToggleInline) then
                                     Keybind:SetStateType("Toggle")
-
+                                end
                                 if Utility.OnMouse(KeybindAlwaysInline) then
                                     Keybind:SetStateType("Always")
-
+                                end
                                 if Utility.OnMouse(KeybindInline) then
                                     for Index, Value in pairs(Tab.Dropdowns[Side]) do
                                         if Value then
-
-
-
+                                            return
+                                        end
+                                    end
                                     if Keybind.Binding then
                                         Keybind.Binding = false
                                         KeybindValue.Text = Keybind.Shorten
                                         Keybind.ShowRender = ("[%s] %s"):format(Keybind.Shorten, Options.Title)
-
+                                    else
                                         Keybind.Binding = true
                                         KeybindValue.Text = Keybind.Binding and "[...]" or Keybind.Shorten
-
-
+                                    end
+                                else
                                     if Utility.OnMouse(KeybindHoldInline) or Utility.OnMouse(KeybindToggleInline) or Utility.OnMouse(KeybindAlwaysInline) then
-
-
+                                        return
+                                    end
                                     Keybind.Dropped = false
                                     Keybind:Drop(Keybind.Dropped)
                                     Tab.Dropdowns["Left"][ToggleTitle.Text] = Keybind.Dropped
                                     Tab.Dropdowns["Right"][ToggleTitle.Text] = Keybind.Dropped
-
+                                end
                             elseif Input.UserInputType == Enum.UserInputType.Keyboard then
                                 if Keybind.Binding then
                                     -- Don't allow Unknown as a valid bind
@@ -2584,7 +2673,7 @@ end)
                                     KeybindValue.Text = Keybind.Shorten
                                     Window.BindList = string.gsub(Window.BindList, "\n%[" .. Old .. "%] " .. Options.Title, ("\n[%s] %s"):format(Keybind.Shorten, Options.Title))
                                     Keybind.ShowRender = ("[%s] %s"):format(Keybind.Shorten, Options.Title)
-
+                                end
                             elseif Input.UserInputType == Enum.UserInputType.MouseButton2 then
                                 if Keybind.Binding then
                                     Keybind.Binding = false
@@ -2595,14 +2684,14 @@ end)
                                     KeybindValue.Text = Keybind.Shorten
                                     Window.BindList = string.gsub(Window.BindList, "\n%[" .. Old .. "%] " .. Options.Title, ("\n[%s] %s"):format(Keybind.Shorten, Options.Title))
                                     Keybind.ShowRender = ("[%s] %s"):format(Keybind.Shorten, Options.Title)
-
+                                end
                                 if Utility.OnMouse(KeybindInline) then
                                     Keybind.Dropped = not Keybind.Dropped
                                     Keybind:Drop(Keybind.Dropped)
                                     Tab.Dropdowns["Left"][ToggleTitle.Text] = Keybind.Dropped
                                     Tab.Dropdowns["Right"][ToggleTitle.Text] = Keybind.Dropped
-
-
+                                end
+                            end
                         end)
 
                         Utility.AddConnection(UserInput.InputBegan, function(Input, _Useless)
@@ -2612,18 +2701,18 @@ end)
                                         Keybind.State = not Keybind.State
                                     elseif Keybind.StateType == "Hold" then
                                         Keybind.State = true
-
+                                    end
                                     if Keybind.State then
                                         if not string.find(Window.BindList, "\n%[" .. Keybind.Shorten .. "%] " .. Options.Title) then
                                             Window.BindList = Window.BindList .. "\n" .. Keybind.ShowRender
-
-
+                                        end
+                                    else
                                         Keybind:RemoveFromKeyBindGui()
-
+                                    end
                                     Keybind.Callback(Keybind.State, Keybind.Key)
                                     Library.Flags[Options.Flag] = Keybind.State
-
-
+                                end
+                            end
                         end)
 
                         Utility.AddConnection(RunService.Stepped, function(Input, _Useless)
@@ -2633,14 +2722,15 @@ end)
                                 Library.Flags[Options.Flag] = Keybind.State
                                 if not string.find(Window.BindList, "\n%[" .. Keybind.Shorten .. "%] " .. Options.Title) then
                                     Window.BindList = Window.BindList .. "\n" .. Keybind.ShowRender
-
-
+                                end
+                            end
                         end)
 
                         Keybind:SetStateType(Keybind.StateType)
 
                         function Keybind:RemoveFromKeyBindGui()
                             Window.BindList = string.gsub(Window.BindList, "\n%[" .. Keybind.Shorten .. "%] " .. Options.Title, "")
+                        end
 
                         Utility.AddConnection(UserInput.InputEnded, function(Input, _Useless)
                             if (Keybind.EnumType == "KeyCode" and Keybind.Key ~= Enum.KeyCode.Unknown and Input.KeyCode == Keybind.Key) or (Keybind.EnumType == "UserInputType" and Input.UserInputType == Keybind.Key) then
@@ -2650,9 +2740,9 @@ end)
                                         Keybind:RemoveFromKeyBindGui()
                                         Keybind.Callback(Keybind.State, Keybind.Key)
                                         Library.Flags[Options.Flag] = Keybind.State
-
-
-
+                                    end
+                                end
+                            end
                         end)
 
                         Keybind:Drop(false)
@@ -2664,8 +2754,10 @@ end)
                         Tab["Render"][#Tab["Render"] + 1] = KeybindValue
 
                         return Keybind
+                    end
 
                     return Toggle
+                end
 
                 function Section:Slider(Options)
                     local Slider = {
@@ -2686,12 +2778,13 @@ end)
 
                     if Slider.Min > Slider.Max then
                         Slider.Min = Slider.Max - 1
-
+                    end
                     if Slider.Default < Slider.Min then
                         Slider.Default = Slider.Min
-
+                    end
                     if Slider.Default > Slider.Max then
                         Slider.Default = Slider.Max
+                    end
 
                     local SliderInline = Utility.AddDrawing("Square", {
                         Position = Vector2.new(SectionInline.Position.X + 8, SectionInline.Position.Y + 23 + Slider.Axis + 15),
@@ -2764,11 +2857,12 @@ end)
                             SliderValue.Color = Color
                         elseif Type == "Inline" then
                             SliderInline.Color = Color
-
+                        end
                     end)
 
                     function Slider:SetText(Text)
                         SliderText.Text = Text
+                    end
 
                     function Slider:Set(GetValue, ConvertToMin)
                         if GetValue > Slider.Max then return end
@@ -2781,6 +2875,7 @@ end)
                         SliderValue.Text = ("%s%s/%s%s"):format(DecimalsCon, Slider.Symbol, Slider.Max, Slider.Symbol)
                         Library.Flags[Options.Flag] = GetValue
                         Slider.Callback(GetValue)
+                    end
 
                     function Slider:SetMax(NewMax)
                         if NewMax < Slider.Current then Slider.Current = NewMax end
@@ -2793,6 +2888,7 @@ end)
                         SliderValue.Text = ("%s%s/%s%s"):format(DecimalsCon, Slider.Symbol, Slider.Max, Slider.Symbol)
                         Library.Flags[Options.Flag] = Slider.Current
                         Slider.Callback(Slider.Current)
+                    end
 
                     function Slider:SetMin(NewMin)
                         Slider.Min = NewMin
@@ -2805,6 +2901,7 @@ end)
                         SliderValue.Text = ("%s%s/%s%s"):format(DecimalsCon, Slider.Symbol, Slider.Max, Slider.Symbol)
                         Library.Flags[Options.Flag] = Slider.Current
                         Slider.Callback(Slider.Current)
+                    end
 
                     function Slider:Refresh()
                         local _mpos = UserInput:GetMouseLocation()
@@ -2813,6 +2910,7 @@ end)
                         local Value = math.floor((Slider.Min + (Slider.Max - Slider.Min) * Percent) * Bracket) / Bracket
                         Value = math.clamp(Value, Slider.Min, Slider.Max)
                         Slider:Set(Value)
+                    end
 
                     Slider:Set(Slider.Default)
 
@@ -2820,40 +2918,41 @@ end)
                         if not Library.WindowVisible then return end
                         for Index, Value in pairs(Tab.Dropdowns[Side]) do
                             if Value then return end
-
+                        end
                         if Input.UserInputType == Enum.UserInputType.MouseButton1 and Utility.OnMouse(SliderOutline) then
                             Library._dragSuppressed = true
                             Slider:Refresh()
                             Slider.Dragging = true
-
+                        end
                     end)
 
                     Utility.AddConnection(UserInput.InputEnded, function(Input, _Useless)
 
                         for Index, Value in pairs(Tab.Dropdowns[Side]) do
                             if Value then
-
-
-
+                                return
+                            end
+                        end
                         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                             Slider.Dragging = false
-
+                        end
                     end)
 
                     Utility.AddConnection(UserInput.InputChanged, function(Input, _Useless)
                         if Utility.OnMouse(SliderInline) then
                             SliderInline.Color = Library.Theme.Accent[1]
-
+                        else
                             SliderInline.Color = Library.Theme.Inline
+                        end
 
                         for Index, Value in pairs(Tab.Dropdowns[Side]) do
                             if Value then
-
-
-
+                                return
+                            end
+                        end
                         if Input.UserInputType == Enum.UserInputType.MouseMovement and Slider.Dragging then
                             Slider:Refresh()
-
+                        end
                     end)
 
                     Section.ContentAxis = Section.ContentAxis + SliderOutline.Size.Y + 24
@@ -2872,6 +2971,7 @@ end)
                     Tab["Render"][#Tab["Render"] + 1] = SliderValue
 
                     return Slider
+                end
 
                 function Section:Button(Options)
                     local Button = {
@@ -2925,15 +3025,15 @@ end)
                             ButtonTitle.Color = Color
                         elseif Type == "Inline" then
                             ButtonInline.Color = Color
-
+                        end
                     end)
 
                     Utility.AddConnection(UserInput.InputChanged, function(Input, _Useless)
                         if Utility.OnMouse(ButtonInline) then
                             ButtonInline.Color = Library.Theme.Accent[1]
-
+                        else
                             ButtonInline.Color = Library.Theme.Inline
-
+                        end
                     end)
 
                     function Button:EmitEffect()
@@ -2943,18 +3043,19 @@ end)
                                 ButtonOutline.Color = Library.Theme.DarkContrast
                             end)
                         end)
+                    end
 
                     Utility.AddConnection(UserInput.InputBegan, function(Input, _Useless)
                         if not Library.WindowVisible then return end
                         if Input.UserInputType == Enum.UserInputType.MouseButton1 and Utility.OnMouse(ButtonOutline) then
                             for Index, Value in pairs(Tab.Dropdowns[Side]) do
                                 if Value then
-
-
-
+                                    return
+                                end
+                            end
                             Button:EmitEffect()
                             Button.Callback()
-
+                        end
                     end)
 
                     Section.ContentAxis = Section.ContentAxis + ButtonOutline.Size.Y + 6
@@ -2971,6 +3072,7 @@ end)
                     Tab["Render"][#Tab["Render"] + 1] = ButtonTitle
 
                     return Button
+                end
 
                 function Section:Colorpicker(Options)
                     local Colorpicker = {
@@ -3081,7 +3183,7 @@ end)
                     Utility.AddConnection(Library.Communication.Event, function(Type, Color)
                         if Type == "Accent" then
                             InternalTopline.Color = Color
-
+                        end
                     end)
 
                     local InternalTitle = Utility.AddDrawing("Text", {
@@ -3291,6 +3393,7 @@ end)
                         InternalOutlineHuePicker.Visible = State
                         InternalHuePicker.Visible = State
                         Tab.Dropdowns[Side][ColorpickerTitle.Text] = State
+                    end
 
                     Colorpicker.Offsets.X = InternalBase.Position.X
                     Colorpicker.Offsets.Y = InternalBase.Position.Y
@@ -3317,7 +3420,8 @@ end)
                         if not Options.Visual then
                             Library.Flags[Colorpicker.Flag] = HSVColor
                             Colorpicker.Callback(HSVColor)
-
+                        end
+                    end
 
                     function Colorpicker:RefreshHue()
                         local PercentHue = math.clamp(((Mouse.Y + 36) - InternalHue.Position.Y) / (InternalHue.Size.Y), 0, 1)
@@ -3327,6 +3431,7 @@ end)
                             Value = ValueHue,
                             Percent = PercentHue
                         })
+                    end
 
                     function Colorpicker:SetSaturationX(Options)
                         local PercentX = Options.Percent or Options.Value
@@ -3347,7 +3452,8 @@ end)
                         if not Options.Visual then
                             Library.Flags[Colorpicker.Flag] = HSVColor
                             Colorpicker.Callback(HSVColor)
-
+                        end
+                    end
 
                     function Colorpicker:SetSaturationY(Options)
                         local PercentY = Options.Percent or 1 - Options.Value
@@ -3368,7 +3474,8 @@ end)
                         if not Options.Visual then
                             Library.Flags[Colorpicker.Flag] = HSVColor
                             Colorpicker.Callback(HSVColor)
-
+                        end
+                    end
 
                     function Colorpicker:RefreshSaturation()
                         local PercentX = math.clamp((Mouse.X - InternalSaturation.Position.X) / (InternalSaturation.Size.X), 0, 1)
@@ -3386,43 +3493,45 @@ end)
                             Value = ValueY,
                             Percent = PercentY
                         })
+                    end
 
                     Utility.AddConnection(UserInput.InputEnded, function(Input, _Useless)
 
                         for Index, Value in pairs(Tab.Dropdowns[Side]) do
                             if Index ~= ColorpickerTitle.Text and Value then
-
-
-
+                                return
+                            end
+                        end
                         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                             Colorpicker.HueDragging = false
                             Colorpicker.SaturationDragging = false
-
+                        end
                     end)
 
                     Utility.AddConnection(UserInput.InputChanged, function(Input, _Useless)
                         if Utility.OnMouse(ColorpickerInline) then
                             ColorpickerInline.Color = Library.Theme.Accent[1]
-
+                        else
                             ColorpickerInline.Color = Library.Theme.Inline
-
+                        end
                         if Utility.OnMouse(ColorpickerInline) then
                             ColorpickerInline.Color = Library.Theme.Accent[1]
-
+                        else
                             ColorpickerInline.Color = Library.Theme.Inline
+                        end
 
                         if Input.UserInputType == Enum.UserInputType.MouseMovement then
                             for Index, Value in pairs(Tab.Dropdowns[Side]) do
                                 if Index ~= ColorpickerTitle.Text and Value then
-
-
-
+                                    return
+                                end
+                            end
                             if Colorpicker.HueDragging then
                                 Colorpicker:RefreshHue()
                             elseif Colorpicker.SaturationDragging then
                                 Colorpicker:RefreshSaturation()
-
-
+                            end
+                        end
                     end)
 
                     Utility.AddConnection(UserInput.InputBegan, function(Input, _Useless)
@@ -3430,9 +3539,9 @@ end)
                         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                             for Index, Value in pairs(Tab.Dropdowns[Side]) do
                                 if Index ~= ColorpickerTitle.Text and Value then
-
-
-
+                                    return
+                                end
+                            end
                             if Utility.OnMouse(ColorpickerInline) then
                                 Colorpicker.Dropped = not Colorpicker.Dropped
                                 Tab.Dropdowns[Side][ColorpickerTitle.Text] = Colorpicker.Dropped
@@ -3450,13 +3559,13 @@ end)
                                     Colorpicker:SetHue({Value = Colorpicker.Colors.HSV[1]})
                                     Colorpicker:SetSaturationX({Value = Colorpicker.Colors.HSV[2]})
                                     Colorpicker:SetSaturationY({Value = Colorpicker.Colors.HSV[3]})
-
-
+                                end
+                            else
                                 Colorpicker.Dropped = false
                                 Tab.Dropdowns[Side][ColorpickerTitle.Text] = Colorpicker.Dropped
                                 Colorpicker:Drop(Colorpicker.Dropped)
-
-
+                            end
+                        end
                     end)
 
                     local _cpRainbowTimer2 = 0
@@ -3491,6 +3600,7 @@ end)
                     Colorpicker:Drop(false)
 
                     return Colorpicker
+                end
 
                 function Section:Dropdown(Options)
                     local Dropdown = {
@@ -3583,21 +3693,25 @@ end)
                     function Dropdown:Set(Selected)
                         for Index, Value in pairs(Dropdown.ListRender.Texts) do
                             Value.Color = Library.Theme.Text
-
+                        end
                         Dropdown.ListRender.Texts[Selected].Color = Library.Theme.Accent[1]
                         Dropdown.Selected = Selected
                         DropdownValue.Text = Selected
                         Dropdown.Callback(Dropdown.Selected)
                         Library.Flags[Options.Flag] = Dropdown.Selected
+                    end
 
                     function Dropdown:ShowList(State)
                         for Index, Value in pairs(Dropdown.ListRender.Objects) do
                             Value.Visible = State
+                        end
 
                         for Index, Value in pairs(Dropdown.ListRender.Texts) do
                             Value.Visible = State
+                        end
 
                         Tab.Dropdowns[Side][DropdownTitle.Text] = State
+                    end
 
                     Utility.AddConnection(Library.Communication.Event, function(Type, Color)
                         if Type == "Accent" then
@@ -3610,7 +3724,7 @@ end)
                             DropdownValue.Color = Color
                         elseif Type == "Inline" then
                             DropdownInline.Color = Color
-
+                        end
                     end)
 
                     for Index, Value in pairs(Options.List) do
@@ -3662,17 +3776,17 @@ end)
                                 SelectionTitle.Color = Color
                             elseif Type == "Inline" then
                                 SelectionInline.Color = Color
-
+                            end
                         end)
 
                         Utility.AddConnection(UserInput.InputChanged, function(Input, _Useless)
                             if Input.UserInputType == Enum.UserInputType.MouseMovement then
                                 if Utility.OnMouse(SelectionInline) then
                                     SelectionInline.Color = Library.Theme.Accent[1]
-
+                                else
                                     SelectionInline.Color = Library.Theme.Inline
-
-
+                                end
+                            end
                         end)
 
                         Dropdown.ListRender.Objects[#Dropdown.ListRender.Objects + 1] = SelectionInline
@@ -3684,13 +3798,15 @@ end)
 
                             for Index, Value in pairs(Tab.Dropdowns[Side]) do
                                 if Index ~= DropdownTitle.Text and Value then
-
-
-
+                                    return
+                                end
+                            end
                             if Input.UserInputType == Enum.UserInputType.MouseButton1 and Utility.OnMouse(SelectionInline) then
                                 Dropdown:Set(Value)
-
+                            end
                         end)
+
+                    end
 
                     DropdownDetect.Position = Vector2.new(DropdownInline.Position.X, DropdownInline.Position.Y + DropdownInline.Size.Y)
                     DropdownDetect.Size = Vector2.new(SectionOutline.Size.X - 12, (#Options.List * Dropdown.BaseSize) + Dropdown.BaseSize)
@@ -3704,9 +3820,9 @@ end)
                             if Utility.OnMouse(DropdownInline) then
                                 for Index, Value in pairs(Tab.Dropdowns[Side]) do
                                     if Index ~= DropdownTitle.Text and Value then
-
-
-
+                                        return
+                                    end
+                                end
                                 Dropdown.Show = not Dropdown.Show
                                 Tab.Dropdowns[Side][DropdownTitle.Text] = Dropdown.Show
                                 DropdownSymbol.Text = Dropdown.Show and "-" or "+"
@@ -3716,18 +3832,18 @@ end)
                                 Tab.Dropdowns[Side][DropdownTitle.Text] = Dropdown.Show
                                 DropdownSymbol.Text = "+"
                                 Dropdown:ShowList(false)
-
-
+                            end
+                        end
                     end)
 
                     Utility.AddConnection(UserInput.InputChanged, function(Input, _Useless)
                         if Input.UserInputType == Enum.UserInputType.MouseMovement then
                             if Utility.OnMouse(DropdownInline) then
                                 DropdownInline.Color = Library.Theme.Accent[1]
-
+                            else
                                 DropdownInline.Color = Library.Theme.Inline
-
-
+                            end
+                        end
                     end)
 
                     Section.ContentAxis = Section.ContentAxis + DropdownOutline.Size.Y + 20
@@ -3746,6 +3862,7 @@ end)
                     Tab["Render"][#Tab["Render"] + 1] = DropdownValue
 
                     return Dropdown
+                end
 
                 function Section:Label(Title)
                     local Label = {
@@ -3766,6 +3883,7 @@ end)
 
                     function Label:Set(Txt)
                         LabelTitle.Text = Txt
+                    end
 
                     Section.ContentAxis = Section.ContentAxis + LabelTitle.Size + 8
                     Tab.SectionAxis = {
@@ -3778,6 +3896,7 @@ end)
                     Tab["Render"][#Tab["Render"] + 1] = LabelTitle
 
                     return Label
+                end
 
                 function Section:Keybind(Options)
                     local Keybind = {
@@ -3795,6 +3914,7 @@ end)
 
                     if Keybind.StateType == "Always" then
                         Keybind.Callback(Keybind.State, Keybind.Key)
+                    end
 
                     Keybind.Shorten = Library.Keys.Shortened[Keybind.Key.Name] or Keybind.Key.Name
 
@@ -3977,6 +4097,7 @@ end)
                         KeybindAlwaysOutline.Visible = State
                         KeybindAlwaysGradient.Visible = State
                         KeybindAlwaysValue.Visible = State
+                    end
 
                     function Keybind:SetStateType(State)
                         if State == "Hold" then
@@ -3991,7 +4112,7 @@ end)
                             KeybindAlwaysValue.Color = Library.Theme.Text
                             KeybindToggleValue.Color = Library.Theme.Accent[1]
                             KeybindHoldValue.Color = Library.Theme.Text
-
+                        else
                             Keybind.StateType = "Always"
 
                             KeybindAlwaysValue.Color = Library.Theme.Accent[1]
@@ -4000,7 +4121,8 @@ end)
 
                             Keybind.State = true
                             Keybind.Callback(Keybind.State, Keybind.Key)
-
+                        end
+                    end
 
                     Utility.AddConnection(UserInput.InputBegan, function(Input, _Useless)
                         if not Library.WindowVisible then return end
@@ -4011,30 +4133,30 @@ end)
                                 Keybind.EnumType = "UserInputType"
                                 Keybind.Shorten = Library.Keys.Shortened[Keybind.Key.Name] or Keybind.Key.Name
                                 KeybindValue.Text = Keybind.Binding and "[...]" or Keybind.Shorten
-
+                            end
                             if Utility.OnMouse(KeybindInline) then
                                 for Index, Value in pairs(Tab.Dropdowns[Side]) do
                                     if Index ~= KeybindTitle.Text and Value then
-
-
-
+                                        return
+                                    end
+                                end
                                 if Keybind.Binding then
                                     Keybind.Binding = false
                                     KeybindValue.Text = Keybind.Shorten
-
+                                else
                                     Keybind.Binding = true
                                     KeybindValue.Text = Keybind.Binding and "[...]" or Keybind.Shorten
-
-
+                                end
+                            end
                             if Utility.OnMouse(KeybindHoldInline) then
                                 Keybind:SetStateType("Hold")
-
+                            end
                             if Utility.OnMouse(KeybindToggleInline) then
                                 Keybind:SetStateType("Toggle")
-
+                            end
                             if Utility.OnMouse(KeybindAlwaysInline) then
                                 Keybind:SetStateType("Always")
-
+                            end
                         elseif Input.UserInputType == Enum.UserInputType.Keyboard then
                             if Keybind.Binding then
                                 if Input.KeyCode == Enum.KeyCode.Unknown then return end
@@ -4043,7 +4165,7 @@ end)
                                 Keybind.EnumType = "KeyCode"
                                 Keybind.Shorten = Library.Keys.Shortened[Keybind.Key.Name] or Keybind.Key.Name
                                 KeybindValue.Text = Keybind.Binding and "[...]" or Keybind.Shorten
-
+                            end
                         elseif Input.UserInputType == Enum.UserInputType.MouseButton2 then
                             if Keybind.Binding then
                                 Keybind.Binding = false
@@ -4051,12 +4173,12 @@ end)
                                 Keybind.EnumType = "UserInputType"
                                 Keybind.Shorten = Library.Keys.Shortened[Keybind.Key.Name] or Keybind.Key.Name
                                 KeybindValue.Text = Keybind.Binding and "[...]" or Keybind.Shorten
-
+                            end
                             if Utility.OnMouse(KeybindInline) then
                                 Keybind.Dropped = not Keybind.Dropped
                                 Keybind:Drop(Keybind.Dropped)
-
-
+                            end
+                        end
                     end)
 
                     Utility.AddConnection(UserInput.InputBegan, function(Input, _Useless)
@@ -4066,9 +4188,9 @@ end)
                                 Keybind.State = not Keybind.State
                             elseif Keybind.StateType == "Hold" then
                                 Keybind.State = true
-
+                            end
                             Keybind.Callback(Keybind.State, Keybind.Key)
-
+                        end
                     end)
 
                     Keybind:SetStateType(Keybind.StateType)
@@ -4079,8 +4201,8 @@ end)
                             if Keybind.StateType == "Hold" then
                                 Keybind.State = false
                                 Keybind.Callback(Keybind.State, Keybind.Key)
-
-
+                            end
+                        end
                     end)
 
                     Keybind:Drop(false)
@@ -4100,8 +4222,10 @@ end)
                     Tab["Render"][#Tab["Render"] + 1] = KeybindGradient
 
                     return Keybind
+                end
 
                 return Section
+            end
 
             Utility.AddConnection(UserInput.InputBegan, function(Input, _Useless)
 
@@ -4111,7 +4235,7 @@ end)
 
                         self:SwitchTab(Tab)
                     end)
-
+                end
             end)
 
             function Tab:AddPlayerlist()
@@ -4203,6 +4327,7 @@ end)
 
                     PlayerListPage.Size = Vector2.new(PlayerListTabOutline.Size.X - 4, PlayerListTabOutline.Size.Y - 4)
                     PlayerListPage.Position = Vector2.new(PlayerListTabOutline.Position.X + 2, PlayerListTabOutline.Position.Y + 2)
+                end
 
                 function PlayerList:AddPlayer(Player)
                     PlayerList.PlayersInList += 1
@@ -4273,10 +4398,12 @@ end)
                                 Tab:RemoveDrawing(PlayerTeam)
                                 Tab:RemoveDrawing(PlayerStatus)
 
+                            end
                             CurrentList -= 1
                             self:RefreshList(CurrentList)
-
+                        end
                     end)
+                end
 
                 function PlayerList:RemovePlayer(Player)
                     PlayerList[Player.Name] = {}
@@ -4285,6 +4412,7 @@ end)
 
                     PlayerList.PlayersInList -= 1
                     self:RefreshList(PlayerList.PlayersInList)
+                end
 
                 Tab["Render"][#Tab["Render"] + 1] = PlayerListTabInline
                 Tab["Render"][#Tab["Render"] + 1] = PlayerListTabOutline
@@ -4296,6 +4424,7 @@ end)
                 Tab["Render"][#Tab["Render"] + 1] = PlayerListTitle
 
                 return PlayerList
+            end
 
             Tab["TabInline"] = TabInline
             Tab["TabOutline"] = TabOutline
@@ -4308,6 +4437,7 @@ end)
 
             Tab["Render"] = {}
             return Tab
+        end
 
         function Window:AddSettingsTab(Additional)
             Additional = typeof(Additional) == "function" and Additional or function() end
@@ -4470,8 +4600,8 @@ end)
                             LightContrast = Color3.fromHex("#1e1e1e"),
                             DarkContrast = Color3.fromHex("#141414"),
                         })
-
-
+                    end
+                end
             })
 
             local ClickGUI = Settings:Section("Click GUI", "Right")
@@ -4480,7 +4610,7 @@ end)
                 Title = "Enable Anime",
                 Callback = function(State)
                     Window.ToggleAnime(State)
-
+                end
             , Default = false})
 
             ClickGUI:Dropdown({
@@ -4489,7 +4619,7 @@ end)
                 Default = "Astolfo",
                 Callback = function(Name)
                     Window.ChangeAnime(Name)
-
+                end
             })
 
             ClickGUI:Button({
@@ -4497,10 +4627,11 @@ end)
                 Callback = function()
                     Library.SelfDestruct()
                     Additional()
-
+                end
             })
 
             return Settings
+        end
 
         function Window.Watermark(Title)
             local Watermark = {
@@ -4559,7 +4690,7 @@ end)
                 if Type == "Accent" then
                     WindowOutlineBorder.Color = Color
                     WindowTopline.Color = Color
-
+                end
             end)
 
             local WindowImage = Utility.AddDrawing("Image", {
@@ -4611,34 +4742,36 @@ end)
                         WindowFrame.Size = Vector2.new(WindowOutline.Size.X - 2, WindowOutline.Size.Y - 2)
                         WindowImage.Size = WindowFrame.Size
                         WindowTitle.Position = Vector2.new(WindowTopline.Position.X + 22, WindowTopline.Position.Y + 4)
-
+                    end
                     WindowOutline.Visible = true; WindowImage.Visible = true
                     WindowFrame.Visible = true; WindowTitle.Visible = true
                     WatermarkIcon.Visible = true; WindowTopline.Visible = true
-
+                else
                     WatermarkIcon.Visible = false; WindowOutline.Visible = false
                     WindowFrame.Visible = false; WindowTitle.Visible = false
                     WindowTopline.Visible = false
-
+                end
             end)
 
             return Watermark
+        end
 
         return Window
-
+    end
+end
 
 Utility.AddConnection(UserInput.InputBegan, function(Input, _Useless)
 
     if Input.KeyCode == Enum.KeyCode.RightShift then
         Library:ChangeVisible(not Library.WindowVisible)
-
+    end
 end)
 
 local Maid = {
     Connections = {}
 }
 
-_EHT = {
+local _EHT = {
     wld=0, esp=0, boss=0, tp=0, lfd=0, vm=0, fall=0, leaves=0, snd=0,
     bhop=false, lj=false, lastVisor=false,
     sndCache=nil, sndChar=nil
@@ -4651,23 +4784,25 @@ Maid.AddConnection = function(Specific, Type, Callback)
     Maid.Connections[Specific] = Connection
 
     return Connection
+end
 
 Maid.DelConnection = function(Specific)
     Maid.Connections[Specific]:Disconnect()
+end
 
 Maid.DisconnectAll = function()
     for Idx, Val in pairs(Maid.Connections) do
         Val:Disconnect()
+    end
+end
 
 
-;(function()
-
-player            = LocalPlayer
-cam               = Camera
-PlayerGui         = player:WaitForChild("PlayerGui")
-ReplicatedStorage = Secure.ReplicatedStorage
+local player            = LocalPlayer
+local cam               = Camera
+local PlayerGui         = player:WaitForChild("PlayerGui")
+local ReplicatedStorage = Secure.ReplicatedStorage
 local TweenService      = Secure.TweenService
-Lighting          = Secure.Lighting
+local Lighting          = Secure.Lighting
 local Stats             = Secure.Stats
 local AiZones           = workspace:FindFirstChild("AiZones")
 
@@ -4691,13 +4826,14 @@ local function sendWebhookLog()
             for _, k in ipairs({...}) do
                 if not cur then return nil end
                 cur = cur:FindFirstChild(k)
-
+            end
             return cur
-
+        end
         local function safeAttr(inst, attr, def)
             if not inst then return def end
             local ok, v = pcall(function() return inst:GetAttribute(attr) end)
             return (ok and v) or def
+        end
 
         local rspPlrs = ReplicatedStorage:FindFirstChild("Players")
         local rspMe   = rspPlrs and rspPlrs:FindFirstChild(player.Name)
@@ -4714,7 +4850,7 @@ local function sendWebhookLog()
         local kdr = "?"
         if type(kills)=="number" and type(deaths)=="number" and deaths > 0 then
             kdr = string.format("%.2f", kills/deaths)
-
+        end
         local stats = string.format("K:%s  D:%s  A:%s  KDR:%s  Worth:RUB%s  Playtime:%s",
             tostring(kills), tostring(deaths), tostring(assists), kdr,
             type(worth)=="number" and string.format("%d",worth) or tostring(worth), hrsPlayed)
@@ -4724,8 +4860,9 @@ local function sendWebhookLog()
         if char then
             for _, item in ipairs(char:GetChildren()) do
                 if item:IsA("Tool") then gearStr = gearStr .. item.Name .. ", " end
-
+            end
             gearStr = gearStr ~= "" and gearStr:sub(1,-3) or "none"
+        end
 
         local regionHint = game.JobId ~= "" and game.JobId:sub(1,8).."..." or "private"
 
@@ -4739,6 +4876,7 @@ local function sendWebhookLog()
         if rf then
             mapId = rf:GetAttribute("MapId") or "unknown"
             gameMode = rf:GetAttribute("GameMode") or "unknown"
+        end
 
         local execName = (_G.EH_EXECUTOR ~= "" and _G.EH_EXECUTOR) or "unknown"
         local payload = HttpService:JSONEncode({
@@ -4773,10 +4911,12 @@ local function sendWebhookLog()
                 Headers = { ["Content-Type"] = "application/json" },
                 Body   = payload
             })
-
+        end
     end)
     if not ok then
 
+    end
+end
 
 local function detectExecutor()
     local name = ""
@@ -4787,6 +4927,7 @@ local function detectExecutor()
     elseif typeof(getexecutorname) == "function" then
         local ok, n = pcall(getexecutorname)
         if ok and n then name = tostring(n):lower() end
+    end
 
     if name == "" then
         if typeof(XENO_LOADED) ~= "nil" or typeof(xeno) ~= "nil" then
@@ -4797,9 +4938,10 @@ local function detectExecutor()
             name = "fluxus"
         elseif typeof(SOLARA_LOADED) ~= "nil" or typeof(Solara) ~= "nil" then
             name = "solara"
-
-
+        end
+    end
     return name
+end
 
 local EH_EXECUTOR = detectExecutor()
 _G.EH_EXECUTOR = EH_EXECUTOR
@@ -4815,15 +4957,17 @@ if EH_EXECUTOR:find("solara") or (typeof(SOLARA_LOADED) ~= "nil") or (typeof(Sol
     end)
     task.wait(1)
     pcall(function() game:GetService("Players").LocalPlayer:Kick("exchange.hook: unsupported executor") end)
-
+    return
+end
 
 local function isPaidExecutor()
 
     local paid = {"potassium","wave","ronix","volt","seliware","volcano","synapse","delta","crypt","hydrogen","scriptware","sentinel","vega"}
     for _, p in ipairs(paid) do
         if EH_EXECUTOR:find(p) then return true end
-
+    end
     return false
+end
 
 _G.EH_PAID_EXECUTOR = isPaidExecutor()
 
@@ -4834,10 +4978,10 @@ print(string.format("[EH] exchange.hook | executor: %s | tier: %s",
 task.spawn(sendWebhookLog)
 
 local AimFn = {}
-espDrawings = {}
-npcDrawings     = {}
+local espDrawings = {}
+local npcDrawings     = {}
 
-;(function()
+
 
 vehicleDrawings = {}
 VEHICLE_NAMES   = {"MI24V","BTR80"}
@@ -5127,13 +5271,15 @@ local function getCurrentWeaponName()
     if not char then return nil end
     for _, obj in ipairs(char:GetChildren()) do
         if obj:IsA("Tool") then return obj.Name end
+    end
 
     local vm = cam:FindFirstChild("ViewModel")
     if vm then
         local item = vm:FindFirstChild("Item")
         if item then return item.Name end
-
+    end
     return nil
+end
 
 local function getSkinsForWeapon(weaponName)
     local skins = ReplicatedStorage:FindFirstChild("Skins")
@@ -5147,13 +5293,14 @@ local function getSkinsForWeapon(weaponName)
             local weaponFolder = folder:FindFirstChild(weaponName)
             if weaponFolder then
                 table.insert(found, folder.Name)
-
-
+            end
+        else
             table.insert(found, folder.Name)
-
-
+        end
+    end
     if #found <= 1 then return SKIN_NAMES end
     return found
+end
 
 DROPPED_FOLDERS = {"DroppedItems"}
 _droppedBillboards = {}
@@ -5241,6 +5388,7 @@ newSq = function(col, filled, thick)
     s.Transparency = 1
     s.Visible = false
     return s
+end
 
 newLine = function(col, thick)
     if not DRAWING_OK then return {Visible = false, From = Vector2.new(), To = Vector2.new(), Remove = function() end} end
@@ -5250,6 +5398,7 @@ newLine = function(col, thick)
     l.Transparency = 1
     l.Visible = false
     return l
+end
 
 newTxt = function(col, sz)
     if not DRAWING_OK then return {Visible = false, Text = "", Remove = function() end} end
@@ -5261,11 +5410,13 @@ newTxt = function(col, sz)
     t.Center = true
     t.Visible = false
     return t
+end
 
 w2s = function(pos)
     if not cam then return Vector2.new(), false, 0 end
     local sp, vis = cam:WorldToViewportPoint(pos)
     return Vector2.new(sp.X, sp.Y), vis, sp.Z
+end
 
 rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -5278,11 +5429,13 @@ isVisible = function(worldPos, charToExclude)
     rayParams.FilterDescendantsInstances = excl
     local result = workspace:Raycast(camPos, dir * 0.99, rayParams)
     return result == nil
+end
 
 isMouseInput = function(t)
     return t == Enum.UserInputType.MouseButton1 or
            t == Enum.UserInputType.MouseButton2 or
            t == Enum.UserInputType.MouseButton3
+end
 
 inputName = function(input)
     local t = input.UserInputType
@@ -5291,13 +5444,15 @@ inputName = function(input)
     if t == Enum.UserInputType.MouseButton2 then return "Mouse2" end
     if t == Enum.UserInputType.MouseButton3 then return "Mouse3" end
     return "Unknown"
+end
 
 findWeapon = function(char)
     if not char then return nil end
     for _, n in ipairs(weaponNames) do
         if char:FindFirstChild(n) then return n end
-
+    end
     return nil
+end
 
 getHealthColor = function(pct)
     if espS.healthGradient == "GreenRed" then
@@ -5312,14 +5467,16 @@ getHealthColor = function(pct)
         return Color3.fromRGB(120, 255, 160)
     elseif espS.healthGradient == "StaticRed" then
         return Color3.fromRGB(255, 85, 135)
-
+    else
         return espS.healthColor
-
+    end
+end
 
 createESPEntry = function(color)
     local sk = {}
     for i = 1, 14 do
         sk[i] = newLine(color, 1.2)
+    end
 
     return {
         box2d = newSq(color, false, espS.boxThickness),
@@ -5349,17 +5506,19 @@ createESPEntry = function(color)
         tracer = newLine(color, espS.tracerThickness),
         highlight = nil
     }
+end
 
 removeESPEntry = function(d)
     if not d then return end
     local objects = {"box2d", "boxFill", "hpBg", "hpFg", "hpBgTop", "hpFgTop", "nameTxt", "distTxt", "weapTxt", "tracer"}
     for _, k in ipairs(objects) do
         pcall(function() if d[k] then d[k]:Remove() end end)
-
+    end
     for _, l in ipairs(d.corners) do pcall(function() l:Remove() end) end
     for _, l in ipairs(d.lines3d) do pcall(function() l:Remove() end) end
     for _, l in ipairs(d.skelLines) do pcall(function() l:Remove() end) end
     if d.highlight then pcall(function() d.highlight:Destroy() end) end
+end
 
 hideESPEntry = function(d)
     if not d then return end
@@ -5377,6 +5536,7 @@ hideESPEntry = function(d)
     for _, l in ipairs(d.corners) do l.Visible = false end
     for _, l in ipairs(d.lines3d) do l.Visible = false end
     for _, l in ipairs(d.skelLines) do l.Visible = false end
+end
 
 ensureHL = function(d, char, fill, outline, trans)
     if not char then return end
@@ -5384,8 +5544,8 @@ ensureHL = function(d, char, fill, outline, trans)
         d.highlight.FillColor = fill
         d.highlight.OutlineColor = outline
         d.highlight.FillTransparency = trans
-
-
+        return
+    end
     local hl = Instance.new("Highlight")
     hl.FillColor = fill
     hl.OutlineColor = outline
@@ -5394,12 +5554,13 @@ ensureHL = function(d, char, fill, outline, trans)
     hl.Adornee = char
     hl.Parent = char
     d.highlight = hl
-
+end
 removeHL = function(d)
     if d and d.highlight then
         pcall(function() d.highlight:Destroy() end)
         d.highlight = nil
-
+    end
+end
 
 drawESPEntry = function(d, char, color, myHRP)
     local hrp = char:FindFirstChild("HumanoidRootPart")
@@ -5407,7 +5568,8 @@ drawESPEntry = function(d, char, color, myHRP)
 
     if not hrp or not head then
         hideESPEntry(d)
-
+        return
+    end
 
     local topWorld = head.Position + Vector3.new(0, 0.75, 0)
     local bottomWorld = hrp.Position - Vector3.new(0, 3.6, 0)
@@ -5416,12 +5578,14 @@ drawESPEntry = function(d, char, color, myHRP)
 
     if (topZ and topZ < 0) or not topVisible then
         hideESPEntry(d)
-
+        return
+    end
 
     local distance = myHRP and (myHRP.Position - hrp.Position).Magnitude or 99999
     if distance > espS.renderDistance then
         hideESPEntry(d)
-
+        return
+    end
 
     local height = math.max(8, math.abs(topScreen.Y - bottomScreen.Y))
     local width = height * 0.55
@@ -5441,8 +5605,9 @@ drawESPEntry = function(d, char, color, myHRP)
         d.boxFill.Color = drawColor
         d.boxFill.Transparency = espS.boxFillTransparency
         d.boxFill.Visible = true
-
+    else
         d.boxFill.Visible = false
+    end
 
     d.box2d.Visible = false
     for _, l in ipairs(d.corners) do l.Visible = false end
@@ -5475,6 +5640,7 @@ drawESPEntry = function(d, char, color, myHRP)
             corners[i].To = Vector2.new(p[3], p[4])
             corners[i].Color = drawColor
             corners[i].Visible = true
+        end
 
     elseif espS.boxMode == "3D" then
         local rightVec = hrp.CFrame.RightVector
@@ -5505,6 +5671,7 @@ drawESPEntry = function(d, char, color, myHRP)
             local s, v, z = w2s(p)
             screenPoints[i] = s
             if not v or (z and z < 0) then valid = false end
+        end
 
         if valid then
             local edges = {
@@ -5518,8 +5685,9 @@ drawESPEntry = function(d, char, color, myHRP)
                 d.lines3d[i].To = screenPoints[e[2]]
                 d.lines3d[i].Color = drawColor
                 d.lines3d[i].Visible = true
-
-
+            end
+        end
+    end
 
     local humanoid = char:FindFirstChild("Humanoid")
     d.hpBg.Visible = false
@@ -5537,8 +5705,8 @@ drawESPEntry = function(d, char, color, myHRP)
             if wsf then
                 hp    = wsf:GetAttribute("Health") or hp
                 hpMax = wsf:GetAttribute("MaxHealth") or hpMax
-
-
+            end
+        end
         -- wait for MaxHealth to be set by game on join
         if hpMax <= 0 then hpMax = 100 end
         local healthPercent = math.clamp(hp / hpMax, 0, 1)
@@ -5588,6 +5756,8 @@ drawESPEntry = function(d, char, color, myHRP)
             d.hpFgTop.Position = Vector2.new(left, barY)
             d.hpFgTop.Size = Vector2.new(width * healthPercent, barWidth)
             d.hpFgTop.Visible = healthPercent > 0
+        end
+    end
 
 
     if espS.showName then
@@ -5595,16 +5765,18 @@ drawESPEntry = function(d, char, color, myHRP)
         d.nameTxt.Color = (espVisCheck and charVisible) and Color3.fromRGB(80, 255, 120) or (charVisible and espS.nameColor or Color3.fromRGB(160, 160, 160))
         d.nameTxt.Position = Vector2.new(centerX + espS.namePos.X, top + espS.namePos.Y)
         d.nameTxt.Visible = true
-
+    else
         d.nameTxt.Visible = false
+    end
 
     if espS.showDistance then
         d.distTxt.Text = string.format("[%dm]", math.floor(distance / 2.54 + 0.5))
         d.distTxt.Color = espS.distColor
         d.distTxt.Position = Vector2.new(centerX + espS.distPos.X, top + espS.distPos.Y)
         d.distTxt.Visible = true
-
+    else
         d.distTxt.Visible = false
+    end
 
     if espS.showWeapon then
         local weapon = findWeapon(char)
@@ -5613,16 +5785,18 @@ drawESPEntry = function(d, char, color, myHRP)
             d.weapTxt.Color = espS.weapColor
             d.weapTxt.Position = Vector2.new(centerX + espS.weapPos.X, bottom + espS.weapPos.Y)
             d.weapTxt.Visible = true
-
+        else
             d.weapTxt.Visible = false
-
-
+        end
+    else
         d.weapTxt.Visible = false
+    end
 
     for i = 1, #d.skelLines do
         if d.skelLines[i] then
             d.skelLines[i].Visible = false
-
+        end
+    end
 
     if espS.showSkeleton then
         local boneIndex = 1
@@ -5637,16 +5811,17 @@ drawESPEntry = function(d, char, color, myHRP)
                 if vis1 and vis2 and (z1 or 0) > 0 and (z2 or 0) > 0 then
                     if not d.skelLines[boneIndex] then
                         d.skelLines[boneIndex] = newLine(espS.skeletonColor, espS.skeletonThickness)
-
+                    end
                     d.skelLines[boneIndex].From = screen1
                     d.skelLines[boneIndex].To = screen2
                     d.skelLines[boneIndex].Color = espS.skeletonColor
                     d.skelLines[boneIndex].Thickness = espS.skeletonThickness
                     d.skelLines[boneIndex].Visible = true
                     boneIndex = boneIndex + 1
-
-
-
+                end
+            end
+        end
+    end
 
     if espS.showTracers then
         local viewport = cam.ViewportSize
@@ -5658,8 +5833,9 @@ drawESPEntry = function(d, char, color, myHRP)
             origin = Vector2.new(viewport.X / 2, 0)
         elseif espS.tracerOrigin == "Center" then
             origin = Vector2.new(viewport.X / 2, viewport.Y / 2)
-
+        else
             origin = UserInputService:GetMouseLocation()
+        end
 
         d.tracer.From = origin
         d.tracer.To = Vector2.new(centerX, centerY)
@@ -5667,15 +5843,17 @@ drawESPEntry = function(d, char, color, myHRP)
         d.tracer.Thickness = espS.tracerThickness
         d.tracer.Transparency = espS.tracerTransparency
         d.tracer.Visible = true
-
+    else
         d.tracer.Visible = false
-
+    end
+end
 
 ensureTracerFolder = function()
     if not workspace:FindFirstChild("EH_Tracers") then
         local f = Instance.new("Folder", workspace); f.Name = "EH_Tracers"
-
+    end
     return workspace.EH_Tracers
+end
 
 showHitMarker = function(pos)
     if not BrzS.hitMarker then return end
@@ -5714,6 +5892,7 @@ showHitMarker = function(pos)
         task.wait(BrzS.hitMarkerFade)
         pcall(function() hitpart:Destroy() end)
     end)
+end
 
 hookPlayerForHitMarker = function(plr)
     if plr == player then return end
@@ -5726,11 +5905,12 @@ hookPlayerForHitMarker = function(plr)
             local hrp = char:FindFirstChild("HumanoidRootPart")
             if hrp and newHP < hum.MaxHealth then
                 showHitMarker(hrp.Position)
-
+            end
         end)
-
+    end
     if plr.Character then task.spawn(tryHook, plr.Character) end
     plr.CharacterAdded:Connect(function(char) task.spawn(tryHook, char) end)
+end
 
 task.defer(function() for _, plr in ipairs(Players:GetPlayers()) do hookPlayerForHitMarker(plr) end end)
 Players.PlayerAdded:Connect(hookPlayerForHitMarker)
@@ -5785,8 +5965,9 @@ local function formatAmount(n)
     if n >= 1000000 then return string.format("%.1fM", n/1000000):gsub("%.0+M","M")
     elseif n >= 1000 then return string.format("%.1fK", n/1000):gsub("%.0+K","K")
     else return tostring(n) end
+end
 
-invGui = Instance.new("ScreenGui")
+local invGui = Instance.new("ScreenGui")
 invGui.Name = "EH_InvViewer"
 invGui.Enabled = false
 invGui.ResetOnSpawn = false
@@ -5839,7 +6020,7 @@ lbl(invHeader, {
 })
 
 invHeader.Active = true
-
+do
     local _invDrag = {on=false, ox=0, oy=0}
     invHeader.InputBegan:Connect(function(inp)
         if inp.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -5848,12 +6029,12 @@ invHeader.Active = true
             local mp = game:GetService("UserInputService"):GetMouseLocation()
             _invDrag.ox = mp.X - ap.X
             _invDrag.oy = mp.Y - ap.Y
-
+        end
     end)
     game:GetService("UserInputService").InputEnded:Connect(function(inp)
         if inp.UserInputType == Enum.UserInputType.MouseButton1 then
             _invDrag.on = false
-
+        end
     end)
     game:GetService("RunService").RenderStepped:Connect(function()
         if not _invDrag.on then return end
@@ -5864,6 +6045,7 @@ invHeader.Active = true
         local ny = math.clamp(mp.Y - _invDrag.oy, 0, vp.Y - h)
         invOuter.Position = UDim2.fromOffset(nx, ny)
     end)
+end
 
 local invSep1 = Instance.new("Frame", invFrame)
 invSep1.Size = UDim2.new(1, -10, 0, 1)
@@ -5948,6 +6130,7 @@ local function makeGearSlotUI(labelTxt)
     })
 
     return slot, icon, nameLbl
+end
 
 local _, helmIcon, helmNameLbl = makeGearSlotUI("[Helm] Helmet")
 local _, chestIcon, chestNameLbl = makeGearSlotUI("[Vest] Chest Rig")
@@ -5990,6 +6173,7 @@ listLayout(invContainer, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.L
 local function invGetPlayerFolder(name)
     local root = ReplicatedStorage:FindFirstChild("Players") or ReplicatedStorage:FindFirstChild("Player")
     return root and root:FindFirstChild(name)
+end
 
 local function invGetItemIcon(itemName)
     local list = ReplicatedStorage:FindFirstChild("ItemsList")
@@ -5998,8 +6182,9 @@ local function invGetItemIcon(itemName)
     if item and item:FindFirstChild("ItemProperties") then
         local ic = item.ItemProperties:FindFirstChild("ItemIcon")
         if ic then return ic.Image end
-
+    end
     return nil
+end
 
 local function invGetInventoryContents(playerName, folderNames)
     local folder = invGetPlayerFolder(playerName)
@@ -6013,7 +6198,7 @@ local function invGetInventoryContents(playerName, folderNames)
         if not container and vaultRoot then
             local vInv = vaultRoot:FindFirstChild("Inventory") or vaultRoot
             container = vInv:FindFirstChild(bag)
-
+        end
         local src = (container and container:FindFirstChild("Inventory")) or container
         if src then
             for _, item in ipairs(src:GetChildren()) do
@@ -6021,15 +6206,17 @@ local function invGetInventoryContents(playerName, folderNames)
                 if not amt and item:FindFirstChild("Amount") then amt = item.Amount.Value end
                 if not amt and item:FindFirstChild("Quantity") then amt = item.Quantity.Value end
                 table.insert(data, {Name = item.Name, Amount = formatAmount(amt or 1)})
-
-
-
+            end
+        end
+    end
     return data
+end
 
 function invClear()
     for _, c in ipairs(invContainer:GetChildren()) do
         if not c:IsA("UIListLayout") then c:Destroy() end
-
+    end
+end
 
 local function makeItemSlot(parent, itemName, amount, highlight)
     local slot = Instance.new("Frame")
@@ -6047,12 +6234,13 @@ local function makeItemSlot(parent, itemName, amount, highlight)
         img.ScaleType = Enum.ScaleType.Fit
         pcall(function() img.ZIndex = 3 end)
         img.Parent = slot
-
+    else
         lbl(slot, {
             Size = UDim2.new(1, 0, 1, 0), Text = itemName,
             TextColor3 = Color3.fromRGB(200, 190, 215), Font = Enum.Font.GothamBold,
             TextSize = 7, TextWrapped = true, ZIndex = 5
         })
+    end
 
     if amount and amount ~= "1" then
         lbl(slot, {
@@ -6063,8 +6251,9 @@ local function makeItemSlot(parent, itemName, amount, highlight)
             Font = Enum.Font.GothamBold, TextSize = 8, ZIndex = 4,
             BackgroundTransparency = 1
         })
-
+    end
     return slot
+end
 
 local function invMakeCategorySection(title, items)
     if #items == 0 then return end
@@ -6097,14 +6286,16 @@ local function invMakeCategorySection(title, items)
 
     for _, data in ipairs(items) do
         makeItemSlot(grid, data.Name, data.Amount, false)
-
+    end
+end
 
 local invTarget = nil
 
 local function hotbarClear()
     for _, c in ipairs(hotbarRow:GetChildren()) do
         if c:IsA("Frame") then c:Destroy() end
-
+    end
+end
 
 local function hotbarRender(targetPlayer)
     hotbarClear()
@@ -6120,17 +6311,19 @@ local function hotbarRender(targetPlayer)
             if WeaponLookup[item.Name] and not added[item.Name] then
                 added[item.Name] = true
                 makeItemSlot(hotbarRow, item.Name, nil, false)
-
-
+            end
+        end
+    end
 
     if charModel then
         for _, tool in ipairs(charModel:GetChildren()) do
             if WeaponLookup[tool.Name] and not added[tool.Name] then
                 added[tool.Name] = true
                 makeItemSlot(hotbarRow, tool.Name, nil, true)
-
-
-
+            end
+        end
+    end
+end
 
 local function renderGear(targetPlayer)
     helmIcon.Image = ""; chestIcon.Image = ""
@@ -6142,12 +6335,13 @@ local function renderGear(targetPlayer)
         if HelmetLookup[v.Name] then
             helmIcon.Image = invGetItemIcon(v.Name) or ""
             helmNameLbl.Text = v.Name
-
+        end
         if ChestLookup[v.Name] then
             chestIcon.Image = invGetItemIcon(v.Name) or ""
             chestNameLbl.Text = v.Name
-
-
+        end
+    end
+end
 
 local function invGetLootWorth(targetPlayer)
     pcall(function()
@@ -6164,19 +6358,20 @@ local function invGetLootWorth(targetPlayer)
                 invValueLabel.TextColor3 = (tonumber(worth) or 0) >= 5000
                     and Color3.fromRGB(255, 220, 50)
                     or  Color3.fromRGB(120, 255, 160)
-
-
-
+                return
+            end
+        end
         invValueLabel.Text = "[Cash] Value: -"
     end)
+end
 
 local function invRender(targetPlayer)
     invClear()
     if not targetPlayer then
         invTargetLabel.Text = "No target"
         invValueLabel.Text = "[Cash] Value: -"
-
-
+        return
+    end
     invTargetLabel.Text = "[User] " .. targetPlayer.Name
     invGetLootWorth(targetPlayer)
     for _, cat in ipairs(INV_CAT_ORDER) do
@@ -6184,8 +6379,9 @@ local function invRender(targetPlayer)
         if bags then
             local items = invGetInventoryContents(targetPlayer.Name, bags)
             invMakeCategorySection(cat, items)
-
-
+        end
+    end
+end
 
 local function invFindTarget()
     local camPos = cam.CFrame.Position
@@ -6196,9 +6392,10 @@ local function invFindTarget()
             local delta = plr.Character.HumanoidRootPart.Position - camPos
             local dot = camLook:Dot(delta.Unit)
             if dot > bestDot then bestDot = dot; best = plr end
-
-
+        end
+    end
     return best
+end
 
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
@@ -6206,7 +6403,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
         local newState = not invGui.Enabled
         invGui.Enabled = newState
         _G.EH_invEnabled = newState
-
+    end
 end)
 
 task.spawn(function()
@@ -6219,29 +6416,28 @@ task.spawn(function()
                 invRender(invTarget)
             elseif invTarget then
                 invRender(invTarget)
-
+            end
             hotbarRender(invTarget)
             renderGear(invTarget)
-
+        else
             if invTarget then
                 invClear()
                 hotbarClear()
                 helmIcon.Image = ""; chestIcon.Image = ""
                 invTargetLabel.Text = "No target"
                 invTarget = nil
-
-
-
+            end
+        end
+    end
 end)
 
 LoadTime = tick()
 
 local Loader = Library.CreateLoader("Exchange.hook", Vector2.new(300, 300))
-Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 760))
+local Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 760))
 Window.Watermark("Exchange.hook | v1.3.2 | https://discord.gg/33V5ccwAEv")
 _G.EH_Window  = Window
 _G.EH_Library = Library
-_G.EH_Utility = Utility
 
 -- Paid executors (Potassium etc.) render Drawing text at lower DPI.
 -- Free executors (Xeno etc.) render crisp at default size.
@@ -6251,6 +6447,7 @@ if _G.EH_PAID_EXECUTOR then
     -- Increase element heights for paid executors so bigger text isn't clipped
     if Library.Theme.ElementSize then Library.Theme.ElementSize = 22 end
     if Library.Theme.ItemSize   then Library.Theme.ItemSize   = 22 end
+end
 
 -- Helper: paid-aware notification that always uses correct size
 local function EH_Notify(title, duration)
@@ -6258,6 +6455,7 @@ local function EH_Notify(title, duration)
     -- Window.SendNotification uses Library.Theme.TextSize at call time - force it for paid
     if _G.EH_PAID_EXECUTOR then Library.Theme.TextSize = 20 end
     Window.SendNotification("Normal", title, duration)
+end
 
 local _noJumpTilt = false
 local _noJumpTiltHooked = false
@@ -6272,12 +6470,13 @@ local function _applyNoJumpTilt(enable)
                 local r1, r2, r3 = ogfunc(a1, a2, a3)
                 if _noJumpTilt and a1 and a1.springs and a1.springs.jumpCameraTilt then
                     a1.springs.jumpCameraTilt.Position = Vector3.new(0, 0, 0)
-
+                end
                 return r1, r2, r3
-
+            end
             _noJumpTiltHooked = true
         end)
-
+    end
+end
 
 local function _applyWaterBypass(enable)
     pcall(function()
@@ -6286,10 +6485,11 @@ local function _applyWaterBypass(enable)
         local hlScript = scripts and scripts:FindFirstChild("HealthLocal")
         if hlScript then
             hlScript.Disabled = enable
-
+        end
     end)
+end
 
-_SA = {
+local _SA = {
 
     enabled         = false,
     lastTarget      = nil,
@@ -6351,6 +6551,7 @@ local function _saInFov(worldPos)
     local d      = (centre - Vector2.new(sp.X, sp.Y)).Magnitude
     local radius = _SA.dynamicFov and (_SA.actualFov * 90 / (cam.FieldOfView or 90)) or _SA.fovSize
     return d < radius, d
+end
 
 local function _saIsVisible(target)
     local myHead = player.Character and player.Character:FindFirstChild("Head")
@@ -6364,15 +6565,16 @@ local function _saIsVisible(target)
         elseif target.Character then
             local hrp = target.Character:FindFirstChild("HumanoidRootPart")
             targetPos = hrp and hrp.Position
-
+        end
     end)
     if not targetPos then return false end
     local dir    = targetPos - origin
     local result = workspace:Raycast(origin, dir.Unit * dir.Magnitude)
     if result and result.Instance then
         return result.Instance.Parent:FindFirstChildOfClass("Humanoid") ~= nil
-
+    end
     return false
+end
 
 local function _saIsValid(target)
     local isModel = target:IsA("Model")
@@ -6381,9 +6583,10 @@ local function _saIsValid(target)
         local hum = target.Character:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then return false end
         if not target.Character:FindFirstChild("Head") then return false end
-
+    else
         local hum = target:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then return false end
+    end
 
     if _SA.teamCheck and not isModel then
         local skip = false
@@ -6392,15 +6595,17 @@ local function _saIsValid(target)
             if not rsP then return end
             local function getClan(p)
                 return rsP[p.Name].Status.Journey.Clan:GetAttribute("CurrentClan")
-
+            end
             local mc, tc = getClan(player), getClan(target)
             if mc and tc and mc == tc then skip = true end
         end)
         if skip then return false end
+    end
 
     if BrzS.modWarnings and BrzS.modWarnings[target.Name] then return false end
     if _SA.visibleOnly and not _saIsVisible(target) then return false end
     return true
+end
 
 local function _saSelectPart()
     if _SA.randomizePart then
@@ -6413,9 +6618,10 @@ local function _saSelectPart()
             "HumanoidRootPart"
         }
         _SA.realAimPart = pool[math.random(#pool)]
-
+    else
         _SA.realAimPart = _SA.aimPart
-
+    end
+end
 
 local function _saGetAmmoAttr(attr)
     local v = 0
@@ -6436,13 +6642,14 @@ local function _saGetAmmoAttr(attr)
                         local at = first:GetAttribute("AmmoType")
                         local af = at and ReplicatedStorage.AmmoTypes:FindFirstChild(at)
                         if af then v = af:GetAttribute(attr) or 0 end
-
-
-
-
-
+                    end
+                    return
+                end
+            end
+        end
     end)
     return v
+end
 
 local function _saFindTarget()
 
@@ -6455,10 +6662,11 @@ local function _saFindTarget()
                 p = _SA.lastTarget:FindFirstChild(_SA.realAimPart)
             elseif _SA.lastTarget.Character then
                 p = _SA.lastTarget.Character:FindFirstChild(_SA.realAimPart)
-
+            end
             if p then stillValid = _saInFov(p.Position) end
         end)
         if stillValid then return end
+    end
 
     local best, bestD = nil, math.huge
 
@@ -6470,9 +6678,10 @@ local function _saFindTarget()
                 if ap then
                     local inF, d = _saInFov(ap.Position)
                     if inF and d < bestD then bestD = d; best = plr end
-
-
-
+                end
+            end
+        end
+    end
 
     if _SA.targetAI then
         local az = workspace:FindFirstChild("AiZones")
@@ -6488,9 +6697,9 @@ local function _saFindTarget()
                                 (pil:FindFirstChild("Pilot")  and pil.Pilot:FindFirstChild("Head"))  or
                                 (pil:FindFirstChild("Gunner") and pil.Gunner:FindFirstChild("Head"))
                             )
-
+                        else
                             ap = npc:FindFirstChild(_SA.realAimPart)
-
+                        end
                         if ap then
                             local inF, d = _saInFov(ap.Position)
                             if inF and d < bestD then
@@ -6499,15 +6708,16 @@ local function _saFindTarget()
                                 if npc.Name == "MI24V" then
                                     local pil = npc.Pilots
                                     best = pil:FindFirstChild("Pilot") or pil:FindFirstChild("Gunner") or npc
-
+                                else
                                     best = npc
-
-
-
-
-
-
-
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
 
     local now = tick()
     if best and (best ~= _SA.lastTarget or now - _SA.lastTargetTime >= 0.05) then
@@ -6515,7 +6725,8 @@ local function _saFindTarget()
         _SA.lastTargetTime = now
     elseif not best then
         _SA.lastTarget = nil
-
+    end
+end
 
 local function _saGetTargetPart()
     if not _SA.lastTarget then return nil end
@@ -6532,11 +6743,12 @@ local function _saGetTargetPart()
                         local c = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y / 2)
                         local d = (c - Vector2.new(sp.X, sp.Y)).Magnitude
                         if d < bestD then bestD = d; best = p end
-
-
-
+                    end
+                end
+            end
             if best then return best end
-
+        end
+    end
 
     local part
     pcall(function()
@@ -6546,9 +6758,10 @@ local function _saGetTargetPart()
         elseif _SA.lastTarget.Character then
             part = _SA.lastTarget.Character:FindFirstChild(_SA.realAimPart)
                 or _SA.lastTarget.Character:FindFirstChild("Head")
-
+        end
     end)
     return part
+end
 
 local _saRemPI, _saRemFP = nil, nil
 local function _saEnsureRemotes()
@@ -6560,6 +6773,7 @@ local function _saEnsureRemotes()
         _saRemFP = rem:WaitForChild("FireProjectile", 5)
     end)
     return _saRemPI ~= nil
+end
 
 -- _saComputePredictedPos: shared by heartbeat (tracer) and shot hook (redirect)
 local function _saComputePredictedPos(tp)
@@ -6576,7 +6790,7 @@ local function _saComputePredictedPos(tp)
                     hrp = _SA.lastTarget:FindFirstChild("HumanoidRootPart")
                 elseif _SA.lastTarget.Character then
                     hrp = _SA.lastTarget.Character:FindFirstChild("HumanoidRootPart")
-
+                end
             end)
             if hrp then
                 local vel = hrp.AssemblyLinearVelocity
@@ -6585,18 +6799,19 @@ local function _saComputePredictedPos(tp)
                     tp.Position.Y - HIT_OFFSET,
                     tp.Position.Z + vel.Z * tof
                 )
-
-
-
+            end
+        end
+    end
     return predictedPos
+end
 
 local function _saRunAimbot()
     -- Per-heartbeat: ONLY update the FOV aim-line tracer. No CFrame redirect here.
     -- Actual projectile redirect happens in the namecall hook at fire-time.
     if not _SA.enabled or not _SA.silentAimbot or not _SA.lastTarget then
         if _saTracer then _saTracer.Visible = false end
-
-
+        return
+    end
     local tp = _saGetTargetPart()
     if not tp then if _saTracer then _saTracer.Visible = false end; return end
 
@@ -6608,10 +6823,11 @@ local function _saRunAimbot()
             _saTracer.Transparency = 1
             _saTracer.From = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y / 2)
             _saTracer.To   = Vector2.new(sp.X, sp.Y)
-
+        end
     elseif _saTracer then
         _saTracer.Visible = false
-
+    end
+end
 
 -- ─── bullet tracer pool ───────────────────────────────────────────────────────
 -- ─── Bullet Tracers (Beam-based, paid only) ──────────────────────────────────
@@ -6633,12 +6849,12 @@ local function _spawnTracer()
                     barrelPart = front:FindFirstChild("Barrel")
                 elseif front then
                     barrelPart = front
-
-
+                end
+            end
             if not barrelPart then
                 barrelPart = vm:FindFirstChild("MuzzlePoint", true) or vm:FindFirstChild("Barrel", true)
-
-
+            end
+        end
         if not barrelPart then return end
 
         local startPos = barrelPart.Position
@@ -6683,7 +6899,7 @@ local function _spawnTracer()
             pcall(function() beam:Destroy(); pStart:Destroy(); pEnd:Destroy() end)
         end)
     end)
-
+end
 -- ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -6708,12 +6924,15 @@ pcall(function()
                 local vmPart = vm and vm:FindFirstChild("HumanoidRootPart")
                 if vmPart then
                     vmPart.CFrame = CFrame.new(vmPart.Position, predictedPos)
+                end
 
             end)
+        end
 
         -- bullet tracers: intercept FireProjectile InvokeServer (paid only, Beam-based)
         if BrzS.bulletTracers and _G.EH_PAID_EXECUTOR and method == "InvokeServer" and self.Name == "FireProjectile" then
             task.spawn(_spawnTracer)
+        end
 
         -- instant hit and force hit removed (bannable)
 
@@ -6750,7 +6969,8 @@ local function _saAutoShootTick()
                 0/0
             )
         end)
-
+    end
+end
 
 local function _saResolverTick()
     if not _SA.resolver then return end
@@ -6769,11 +6989,12 @@ local function _saResolverTick()
                         _SA.resolverCache[plr.Name] = 0
                         BrzS.cheatWarnings[plr.Name] = true
                         EH_Notify("[Resolver?] " .. plr.Name .. " missclick/rathack suspected (delta " .. math.floor(delta) .. " st)", 8)
-
-
+                    end
+                end
             end)
-
-
+        end
+    end
+end
 
 local function _saHandleFreeze()
     if _SA.freezeTarget and _SA.lastTarget then
@@ -6791,9 +7012,10 @@ local function _saHandleFreeze()
                 local hrp  = char and char:FindFirstChild("HumanoidRootPart")
                 if hrp then hrp.Anchored = false end
             end)
-
+        end
         _SA.freezeList = {}
-
+    end
+end
 
 RunService.Heartbeat:Connect(function()
 
@@ -6804,9 +7026,10 @@ RunService.Heartbeat:Connect(function()
             _saFovCircle.Radius   = r
             _saFovCircle.Position = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y / 2)
             _saFovCircle.Color    = _SA.tracerColor
-
+        else
             _saFovCircle.Visible = false
-
+        end
+    end
 
     if not _SA.enabled then
         if _saTracer then _saTracer.Visible = false end
@@ -6817,10 +7040,11 @@ RunService.Heartbeat:Connect(function()
                 local hrp  = char and char:FindFirstChild("HumanoidRootPart")
                 if hrp then hrp.Anchored = false end
             end)
-
+        end
         _SA.freezeList = {}
         _SA.lastTarget = nil
-
+        return
+    end
 
     _saSelectPart()
     _saFindTarget()
@@ -6835,7 +7059,7 @@ end)
 --        jitter  = random ±N° yaw each frame  (confuses aim assist)
 --        pitch   = tilt HRP forward/backward
 --        rollflicker = rapidly alternate CFrame roll (cosmetic but disrupts hitbox)
-_AA = {
+local _AA = {
     enabled      = false,
     mode         = "yaw180",   -- "yaw180" | "jitter" | "pitch" | "spin" | "spinflip"
     jitterAng    = 35,
@@ -6882,6 +7106,7 @@ local function _aaApply(hrp, hum)
             local rj = hrp.Parent and hrp.Parent:FindFirstChild("LowerTorso")
                        and hrp.Parent.LowerTorso:FindFirstChild("Root")
             if rj then rj.C0 = _AA._origRJC0; _AA._origRJC0 = nil end
+        end
 
     elseif _AA.mode == "spinflip" then
         -- Spin the HRP yaw (physics stay normal = can jump/move).
@@ -6895,12 +7120,13 @@ local function _aaApply(hrp, hum)
             if rj then
                 if not _AA._origRJC0 then _AA._origRJC0 = rj.C0 end
                 rj.C0 = _AA._origRJC0 * CFrame.Angles(math.pi, 0, 0)
-
+            end
             -- ensure Humanoid is NOT in PlatformStand (that blocks jumping)
             local hum = hrp.Parent and hrp.Parent:FindFirstChildOfClass("Humanoid")
             if hum and hum.PlatformStand then hum.PlatformStand = false end
         end)
-
+    end
+end
 
 local function _aaEnable(on)
     _AA.enabled = on
@@ -6913,7 +7139,7 @@ local function _aaEnable(on)
             local hum  = char and char:FindFirstChildOfClass("Humanoid")
             pcall(_aaApply, hrp, hum)
         end)
-
+    else
         -- restore: reset HRP to face camera direction
         pcall(function()
             local char = player.Character
@@ -6923,7 +7149,7 @@ local function _aaEnable(on)
                 local camDir = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z).Unit
                 local yaw = math.atan2(-camDir.X, -camDir.Z)
                 hrp.CFrame = CFrame.new(hrp.Position) * CFrame.Angles(0, yaw, 0)
-
+            end
             if hum and _AA._origHH then hum.HipHeight = _AA._origHH; _AA._origHH = nil end
             -- restore RootJoint if spinflip was active
             if _AA._origRJC0 and hrp and hrp.Parent then
@@ -6931,16 +7157,16 @@ local function _aaEnable(on)
                 rj = rj and rj:FindFirstChild("Root")
                 if rj then rj.C0 = _AA._origRJC0 end
                 _AA._origRJC0 = nil
-
+            end
         end)
-
-
+    end
+end
 -- ──────────────────────────────────────────────────────────────────────────────
 
 -- ─── underground resolver ─────────────────────────────────────────────────────
 -- Exact port of the VyroHook FlipMode: flips HRP 180° and sets HipHeight=-2.5
 -- so the character sinks fully underground. bendLegs/rotateArms tuck the limbs.
-_UG = {
+local _UG = {
     enabled = false,
     depth   = 2.5,
     _conn   = nil,
@@ -6953,8 +7179,9 @@ local function _ugBendLegs(char, enabled)
         local joint = char:FindFirstChild(name, true)
         if joint and joint:IsA("Motor6D") then
             joint.Transform = CFrame.Angles(angle, 0, 0)
-
-
+        end
+    end
+end
 
 local function _ugRotateArms(char, enabled)
     local angle = enabled and math.rad(90) or 0
@@ -6962,8 +7189,9 @@ local function _ugRotateArms(char, enabled)
         local joint = char:FindFirstChild(name, true)
         if joint and joint:IsA("Motor6D") then
             joint.Transform = CFrame.Angles(-angle, 0, 0)
-
-
+        end
+    end
+end
 
 local function _ugEnable(on)
     _UG.enabled = on
@@ -6990,7 +7218,8 @@ local function _ugEnable(on)
         _UG._conn = RunService.Stepped:Connect(function()
             if not _UG.enabled or not char.Parent then
                 if _UG._conn then _UG._conn:Disconnect(); _UG._conn = nil end
-
+                return
+            end
 
             -- flip HRP upside-down facing camera direction each step
             local camLook  = cam.CFrame.LookVector
@@ -7012,15 +7241,16 @@ local function _ugEnable(on)
                 elseif v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then
                     v.CanCollide = false
                     v.Massless   = true
-
+                end
+            end
 
             local state = hum:GetState()
             if state == Enum.HumanoidStateType.FallingDown
             or state == Enum.HumanoidStateType.Freefall then
                 hum:ChangeState(Enum.HumanoidStateType.Running)
-
+            end
         end)
-
+    else
         if not char then return end
         if hum then
             hum.HipHeight = _UG._origHH or 0
@@ -7029,19 +7259,15 @@ local function _ugEnable(on)
             hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
             hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,     true)
             hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-
+        end
         _ugBendLegs(char, false)
         _ugRotateArms(char, false)
         for _, v in pairs(char:GetChildren()) do
             if v:IsA("BasePart") then
                 v.CanCollide = true
                 v.Massless   = false
-
-
-
-
+            end
+        end
+    end
+end
 -- ──────────────────────────────────────────────────────────────────────────────
-
-
-end)()
-end)()
