@@ -488,7 +488,7 @@ Library = {
         Text = Color3.fromHex("#e8e8e8"),
         TextInactive = Color3.fromHex("#aaaaaa"),
         Font = Drawing.Fonts.Monospace,
-        TextSize = 13,
+        TextSize = 11,
         UseOutline = false
     },
     Icons = {},
@@ -1128,7 +1128,7 @@ do
 
         do
             local WindowOutline = Utility.AddDrawing("Square", {
-                Size = Vector2.new(120, 20),
+                Size = Vector2.new(160, 26),
                 Thickness = 1,
                 Color = Library.Theme.Outline,
                 Visible = true,
@@ -1175,7 +1175,7 @@ do
 
             local WindowText = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
-                Size = Library.Theme.TextSize,
+                Size = 16,
                 Color = Library.Theme.Text,
                 Text = "Keybinds",
                 Position = Vector2.new(WindowOutlineBorder.Position.X + (WindowOutlineBorder.Size.X / 2), WindowOutlineBorder.Position.Y + 2),
@@ -1186,12 +1186,12 @@ do
 
             local CurrentBinds = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
-                Size = Library.Theme.TextSize,
+                Size = 16,
                 Color = Library.Theme.Text,
                 Text = "",
-                Position = Vector2.new(WindowOutlineBorder.Position.X + 3, WindowOutlineBorder.Position.Y + 8),
+                Position = Vector2.new(WindowOutlineBorder.Position.X + (WindowOutlineBorder.Size.X / 2), WindowOutlineBorder.Position.Y + 10),
                 Visible = true,
-                Center = false,
+                Center = true,
                 Outline = false
             }, Library.Keybind)
 
@@ -1201,7 +1201,7 @@ do
                 if cur == _kbLastBind then return end
                 _kbLastBind = cur
                 CurrentBinds.Text = cur
-                local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= 120 and CurrentBinds.TextBounds.X + 6 or 120, 20 + CurrentBinds.TextBounds.Y - 6) or Vector2.new(120, 20)
+                local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= 160 and CurrentBinds.TextBounds.X + 10 or 160, 26 + CurrentBinds.TextBounds.Y - 6) or Vector2.new(160, 26)
                 WindowOutline.Size = CalcuationSize
                 WindowOutlineBorder.Size = Vector2.new(WindowOutline.Size.X - 2, WindowOutline.Size.Y - 2)
                 WindowOutlineBorder.Position = Vector2.new(WindowOutline.Position.X + 1, WindowOutline.Position.Y + 1)
@@ -1210,6 +1210,7 @@ do
                 WindowImage.Size = WindowFrame.Size
                 WindowImage.Position = WindowFrame.Position
                 WindowText.Position = Vector2.new(WindowOutlineBorder.Position.X + (WindowOutlineBorder.Size.X / 2), WindowOutlineBorder.Position.Y + 2)
+                CurrentBinds.Position = Vector2.new(WindowOutlineBorder.Position.X + (WindowOutlineBorder.Size.X / 2), WindowOutlineBorder.Position.Y + 10)
             end)
 
             Utility.AddDrag(WindowOutline, Library.Keybind)
@@ -4650,7 +4651,7 @@ do
             }, Library.Watermark)
 
             local WatermarkIcon = Utility.AddDrawing("Image", {
-                Size = Vector2.new(18, 20),
+                Size = Vector2.new(22, 24),
                 Position = Vector2.new(WindowOutline.Position.X + 2, WindowOutline.Position.Y + 2),
                 Transparency = 1,
                 ZIndex = 3,
@@ -4703,7 +4704,7 @@ do
 
             local WindowTitle = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
-                Size = Library.Theme.TextSize,
+                Size = 16,
                 Color = Library.Theme.Text,
                 Text = Watermark.Title .. " | " .. ("%s, %s, %s"):format(os.date("%B"), os.date("%d"), os.date("%Y")),
                 Position = Vector2.new(WindowFrame.Position.X + (WindowFrame.Size.X / 2), WindowOutlineBorder.Position.Y + 4),
@@ -4712,7 +4713,7 @@ do
                 Outline = false
             }, Library.Watermark)
 
-            WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + 19, 20)
+            WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + 26, 26)
             WindowTopline.Size = Vector2.new(WindowOutline.Size.X - 2, 2)
             WindowFrame.Size = Vector2.new(WindowOutline.Size.X - 2, WindowOutline.Size.Y - 2)
 
@@ -4736,7 +4737,7 @@ do
                     if newTxt ~= _wmLast then
                         WindowTitle.Text = newTxt
                         _wmLast = newTxt
-                        WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + 28, 22)
+                        WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + 32, 26)
                         WindowOutlineBorder.Size = WindowOutline.Size
                         WindowTopline.Size = Vector2.new(WindowOutline.Size.X - 2, 1)
                         WindowFrame.Size = Vector2.new(WindowOutline.Size.X - 2, WindowOutline.Size.Y - 2)
@@ -6434,7 +6435,7 @@ end)
 LoadTime = tick()
 
 local Loader = Library.CreateLoader("Exchange.hook", Vector2.new(300, 300))
-Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 760))
+Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 820))
 Window.Watermark("Exchange.hook | v1.3.2 | https://discord.gg/33V5ccwAEv")
 _G.EH_Window  = Window
 _G.EH_Library = Library
