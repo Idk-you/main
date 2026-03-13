@@ -153,4 +153,4 @@ CamSection:Toggle({Title = "camera tilt", Flag = "CamTilt", Default = false})
 CamSection:Slider({Title = "tilt angle", Flag = "CamTiltAngle", Symbol = "deg", Default = 15, Min = 0, Max = 45, Decimals = 1})
 
 
-_G.EH_VisTab  = VisTab
+_G.EH_VisTab    = VisTab
