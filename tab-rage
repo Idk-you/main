@@ -375,7 +375,6 @@ end})
 SASection:Toggle({Title = "tracer color", Flag = "BulletTracerColorTog", Default = false}):Colorpicker({Color = Color3.fromRGB(255, 155, 205), Flag = "BulletTracerColor", Callback = function(c)
     BrzS.bulletTracerColor = c
 end})
-
 local AntiAimSection = RageTab:Section("anti aim", "Right")
 local _togAAEnabled = AntiAimSection:Toggle({Title = "enabled", Flag = "AAEnabled", Default = false, Callback = function(s)
     _aaEnable(s)
