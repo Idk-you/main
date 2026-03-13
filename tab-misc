@@ -695,4 +695,4 @@ FarmerSection:Label("1) record  2) click west spawn button")
 -- ──────────────────────────────────────────────────────────────────────────────
 
 
-_G.EH_MiscTab = MiscTab
+_G.EH_MiscTab   = MiscTab
