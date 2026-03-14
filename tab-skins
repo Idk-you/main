@@ -114,7 +114,27 @@ end})
 
 -- ─── Apply helpers ────────────────────────────────────────────────────────────
 local function _applyToItem(item, skinName)
+    -- Set Skin attribute on the item itself
     pcall(function() item:SetAttribute("Skin", skinName) end)
+    -- Set/create an ObjectValue named "Skin" pointing to the skin instance
+    pcall(function()
+        local rs   = game:GetService("ReplicatedStorage")
+        local cat  = _itemToCat[item.Name]
+        local skinInst = cat and rs.Skins and rs.Skins:FindFirstChild(cat)
+                      and rs.Skins[cat]:FindFirstChild(skinName)
+        local ov = item:FindFirstChild("Skin")
+        if not ov then
+            ov = Instance.new("ObjectValue")
+            ov.Name   = "Skin"
+            ov.Parent = item
+        end
+        if skinInst and skinName ~= "" then
+            ov.Value = skinInst
+        else
+            ov.Value = nil
+        end
+    end)
+    -- Also apply to Attachments
     pcall(function()
         local att = item:FindFirstChild("Attachments")
         if att then
