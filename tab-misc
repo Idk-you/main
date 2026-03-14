@@ -100,6 +100,13 @@ MovSection:Toggle({Title = "long jump", Flag = "LongJump", Default = false})
 MovSection:Slider({Title = "long jump power", Flag = "LongJumpPow", Symbol = "", Default = 60, Min = 10, Max = 200, Decimals = 1})
 
 local WorldMiscSection = MiscTab:Section("world", "Left")
+WorldMiscSection:Button({Title = "rejoin server", Callback = function()
+    local TeleportService = game:GetService("TeleportService")
+    pcall(function()
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
+    end)
+end})
+
 WorldMiscSection:Button({Title = "detonate all mines", Callback = function()
     task.spawn(function()
         local n = _detonateAllMines()
