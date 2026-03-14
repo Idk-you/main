@@ -121,17 +121,10 @@ local _ovItems = {
 
 local function _applyToItem(item, skinName)
     if _ovItems[item.Name] then
-        -- For these items: find the ObjectValue in Inventory whose Value == item,
-        -- then rename that ObjectValue to the skin name.
+        -- For these items: the item IS an ObjectValue in Inventory.
+        -- Just rename it to the skin name.
         pcall(function()
-            local inv = item.Parent
-            if not inv then return end
-            for _, child in ipairs(inv:GetChildren()) do
-                if child:IsA("ObjectValue") and child.Value == item then
-                    child.Name = skinName
-                    break
-                end
-            end
+            item.Name = skinName
         end)
     else
         -- Normal items: set Skin attribute + apply to attachments
@@ -157,7 +150,23 @@ PickSection:Button({Title = "apply skin", Callback = function()
     local skinName = _curSkins[_skinIdx]
     pcall(function()
         local inv = game:GetService("ReplicatedStorage").Players[player.Name].Inventory
-        local item = inv:FindFirstChild(_curItem)
+        -- For OV items, search by Value pointing to the right object, or by any name
+        local item = nil
+        if _ovItems[_curItem] then
+            -- find ObjectValue whose Value's Name matches original item name
+            for _, child in ipairs(inv:GetChildren()) do
+                if child:IsA("ObjectValue") and child.Value and
+                   child.Value.Name == _curItem then
+                    item = child
+                    break
+                end
+            end
+            -- fallback: find by current name or skin name
+            if not item then item = inv:FindFirstChild(_curItem) end
+            if not item then item = inv:FindFirstChild(skinName) end
+        else
+            item = inv:FindFirstChild(_curItem)
+        end
         if not item then error("item not found") end
         _applyToItem(item, skinName)
         _lblStatus:Set("applied: " .. skinName)
