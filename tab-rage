@@ -246,54 +246,9 @@ end
 
 
 local SASection = RageTab:Section("silent aim", "Right")
-local _togSilentAim = SASection:Toggle({Title = "silent aim", Flag = "SilentAim", Default = false, Callback = function(s)
-    _SA.silentAimbot = s
-    _SA.enabled      = s
-end})
+SASection:Label("silent aim disabled")
+SASection:Label("(currently broken)")
 
-SASection:Toggle({Title = "target players", Flag = "SilentPlayers", Default = false, Callback = function(s)
-    _SA.targetPlayers = s
-end})
-SASection:Toggle({Title = "target AI / bots", Flag = "SilentAI", Default = false, Callback = function(s)
-    _SA.targetAI = s
-end})
-SASection:Toggle({Title = "randomize hit part", Flag = "SilentRandPart", Default = false, Callback = function(s)
-    _SA.randomizePart = s
-end})
-SASection:Toggle({Title = "nearest part", Flag = "SilentNearPart", Default = false, Callback = function(s)
-    _SA.nearestPart = s
-end})
-SASection:Toggle({Title = "prediction", Flag = "SilentPredict", Default = false, Callback = function(s)
-    _SA.prediction = s
-end})
-
-SASection:Toggle({Title = "show fov circle", Flag = "SilentShowFov", Default = false, Callback = function(s)
-    _SA.showFov = s
-end})
-SASection:Dropdown({Title = "aim bone", Flag = "SilentBone",
-    List = {"Head","UpperTorso","LowerTorso","HumanoidRootPart","LeftUpperArm","RightUpperArm","LeftUpperLeg","RightUpperLeg"},
-    Default = "Head", Callback = function(v)
-        _SA.aimPart = v
-    end})
-SASection:Slider({Title = "fov size", Flag = "SilentFovSz", Symbol = "px", Default = 150, Min = 20, Max = 600, Decimals = 0, Callback = function(v)
-    _SA.fovSize = v; _SA.actualFov = v
-end})
-SASection:Slider({Title = "hit chance", Flag = "SilentHitChance", Symbol = "%", Default = 100, Min = 1, Max = 100, Decimals = 0, Callback = function(v)
-    _SA.silentChance = v
-end})
-SASection:Slider({Title = "smoothness", Flag = "SilentSmooth", Symbol = "", Default = 1, Min = 1, Max = 20, Decimals = 1, Callback = function(v)
-    _SA.smoothness = v
-end})
-
-SASection:Toggle({Title = "bullet tracers", Flag = "BulletTracers", Default = false, Callback = function(s)
-    BrzS.bulletTracers = s
-end})
-SASection:Slider({Title = "tracer fade time", Flag = "BulletTracerFade", Symbol = "s", Default = 5, Min = 1, Max = 20, Decimals = 0, Callback = function(v)
-    BrzS.bulletTracerFade = v / 10
-end})
-SASection:Toggle({Title = "tracer color", Flag = "BulletTracerColorTog", Default = false}):Colorpicker({Color = Color3.fromRGB(255, 155, 205), Flag = "BulletTracerColor", Callback = function(c)
-    BrzS.bulletTracerColor = c
-end})
 
 local AntiAimSection = RageTab:Section("anti aim", "Right")
 local _togAAEnabled = AntiAimSection:Toggle({Title = "enabled", Flag = "AAEnabled", Default = false, Callback = function(s)
