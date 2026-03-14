@@ -120,8 +120,6 @@ WeapSection:Toggle({Title = "instant mag refill", Flag = "InstantMag", Callback 
     end
 end})
 
-end
-
 -- ─── no sway ──────────────────────────────────────────────────────
 do
     local _swayEnabled = false
