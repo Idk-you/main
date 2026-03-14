@@ -277,28 +277,22 @@ end})
 local PlrInfoSection = MiscTab:Section("player reports", "Left")
 
 do
-    local _nameLabel   = PlrInfoSection:Label("player: " .. player.Name)
-    local _rptLabel    = PlrInfoSection:Label("reports: -")
-    local _flagsLabel  = PlrInfoSection:Label("flags: -")
-    local _hsrLabel    = PlrInfoSection:Label("hsr: -")
-    local _kdLabel     = PlrInfoSection:Label("k/d: -")
-    local _ageLabel    = PlrInfoSection:Label("account age: " .. player.AccountAge .. "d")
-
-    -- target player name (defaults to self)
+    local _nameLabel  = PlrInfoSection:Label("player: " .. player.Name)
+    local _rptLabel   = PlrInfoSection:Label("reports: -")
+    local _flagsLabel = PlrInfoSection:Label("flags: -")
+    local _hsrLabel   = PlrInfoSection:Label("hsr: -")
+    local _kdLabel    = PlrInfoSection:Label("k/d: -")
+    local _ageLabel   = PlrInfoSection:Label("age: " .. player.AccountAge .. "d")
     local _targetName = player.Name
 
-    local _targetDD = nil
     local _playerList = {player.Name}
     for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
-        if plr.Name ~= player.Name then
-            _playerList[#_playerList + 1] = plr.Name
-        end
+        if plr.Name ~= player.Name then _playerList[#_playerList+1] = plr.Name end
     end
-    _targetDD = PlrInfoSection:Dropdown({
-        Title    = "target",
-        Flag     = "ReportTarget",
-        List     = _playerList,
-        Default  = _playerList[1],
+
+    PlrInfoSection:Dropdown({
+        Title = "target", Flag = "ReportTarget",
+        List = _playerList, Default = _playerList[1],
         Callback = function(v)
             _targetName = v
             _nameLabel:Set("player: " .. v)
@@ -308,72 +302,66 @@ do
     local function _getEntry(name)
         local rl = ReplicatedStorage:FindFirstChild("ReportList")
         if not rl then return nil end
-        -- Try direct child: ReportList[name]
+        -- Try all three paths
         local en = rl:FindFirstChild(name)
         if en then return en end
-        -- Try ReportList.Recent[name]
         local recent = rl:FindFirstChild("Recent")
-        if recent then
-            en = recent:FindFirstChild(name)
-            if en then return en end
-        end
-        -- Try ReportList.MostWanted[name]
+        if recent then en = recent:FindFirstChild(name); if en then return en end end
         local mw = rl:FindFirstChild("MostWanted")
-        if mw then
-            en = mw:FindFirstChild(name)
-            if en then return en end
-        end
+        if mw then en = mw:FindFirstChild(name); if en then return en end end
         return nil
     end
 
     local function _updateStats()
         pcall(function()
             local name = _targetName
-            -- kills / deaths from RS.Players
-            local statsFolder = ReplicatedStorage:FindFirstChild("Players")
-            local pStats = statsFolder and statsFolder:FindFirstChild(name)
+            _nameLabel:Set("player: " .. name)
+
+            -- HSR + flags from ReportList
+            local en = _getEntry(name)
+            if en then
+                local flags = en:GetAttribute("TotalFlags") or en:GetAttribute("Flags") or 0
+                local hsr   = en:GetAttribute("HSR") or 0
+                -- HSR may be 0-1 or 0-100 depending on game version
+                if hsr > 0 and hsr <= 1 then hsr = math.floor(hsr * 100 + 0.5) end
+                _flagsLabel:Set("flags: " .. flags)
+                _hsrLabel:Set("hsr: " .. hsr .. "%")
+            else
+                _flagsLabel:Set("flags: not in ReportList")
+                _hsrLabel:Set("hsr: not in ReportList")
+            end
+
+            -- kills/deaths + reports from RS.Players
+            local ps = ReplicatedStorage:FindFirstChild("Players")
+            local pStats = ps and ps:FindFirstChild(name)
             if pStats then
+                local uac = pStats:FindFirstChild("Status") and pStats.Status:FindFirstChild("UAC")
+                local rptFolder = uac and uac:FindFirstChild("Reports")
+                local rptCount = 0
+                if rptFolder then for _ in pairs(rptFolder:GetAttributes()) do rptCount += 1 end end
+                _rptLabel:Set("reports: " .. rptCount)
+
                 local ws = pStats:FindFirstChild("Status")
                        and pStats.Status:FindFirstChild("Journey")
                        and pStats.Status.Journey:FindFirstChild("WipeStatistics")
                 if ws then
                     local k = ws:GetAttribute("Kills") or 0
                     local d = math.max(ws:GetAttribute("Deaths") or 1, 1)
-                    _kdLabel:Set("k/d: " .. k .. " / " .. d .. " (" .. string.format("%.2f", k/d) .. ")")
+                    _kdLabel:Set("k/d: "..k.."/"..d.." ("..string.format("%.2f",k/d)..")")
                 else
-                    _kdLabel:Set("k/d: no data")
+                    _kdLabel:Set("k/d: -")
                 end
-                -- reports from UAC
-                local uac = pStats:FindFirstChild("Status") and pStats.Status:FindFirstChild("UAC")
-                local rptFolder = uac and uac:FindFirstChild("Reports")
-                local rptCount = 0
-                if rptFolder then
-                    for _ in pairs(rptFolder:GetAttributes()) do rptCount += 1 end
-                end
-                _rptLabel:Set("reports: " .. rptCount)
             else
-                _rptLabel:Set("reports: no RS.Players data")
+                _rptLabel:Set("reports: -")
                 _kdLabel:Set("k/d: -")
             end
 
-            -- flags / HSR from ReportList
-            local en = _getEntry(name)
-            if en then
-                local flags = en:GetAttribute("TotalFlags") or en:GetAttribute("Flags") or 0
-                local hsr   = en:GetAttribute("HSR") or en:GetAttribute("HeadshotRatio") or 0
-                _flagsLabel:Set("flags: " .. flags)
-                _hsrLabel:Set("hsr: " .. math.floor(hsr * 100 + 0.5) .. "%")
+            -- account age
+            local plrObj = game:GetService("Players"):FindFirstChild(name)
+            if plrObj then
+                _ageLabel:Set("age: " .. plrObj.AccountAge .. "d")
             else
-                _flagsLabel:Set("flags: not in ReportList")
-                _hsrLabel:Set("hsr: -")
-            end
-
-            -- account age (only works for local player)
-            if name == player.Name then
-                _ageLabel:Set("account age: " .. player.AccountAge .. "d")
-            else
-                local plrObj = game:GetService("Players"):FindFirstChild(name)
-                _ageLabel:Set("account age: " .. (plrObj and plrObj.AccountAge .. "d" or "?"))
+                _ageLabel:Set("age: -")
             end
         end)
     end
@@ -384,7 +372,6 @@ do
 
     task.spawn(function() task.wait(3); _updateStats() end)
 end
-
 
 -- ─── Auto Death Farmer ────────────────────────────────────────────────────────
 local _farmer = {
