@@ -271,7 +271,11 @@ RunService.Heartbeat:Connect(function(dt)
     if F["HitMarkerCol"]   then BrzS.hitMarkerColor = F["HitMarkerCol"]  end
 
     local boxModes = {"Corner","2D","3D","None"}
-    espS.boxMode = boxModes[F["ESPBoxMode"] or 1] or "Corner"
+    if not F["ESPShowBox"] then
+        espS.boxMode = "None"
+    else
+        espS.boxMode = (type(F["ESPBoxMode"]) == "string" and F["ESPBoxMode"]) or boxModes[F["ESPBoxMode"] or 1] or "None"
+    end
 
     -- dropdown returns string directly, not an index
     espS.healthPos = (F["ESPHealthPos"] ~= nil and type(F["ESPHealthPos"]) == "string") and F["ESPHealthPos"] or "Left"
