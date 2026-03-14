@@ -6911,9 +6911,12 @@ pcall(function()
                 local vm = cam:FindFirstChild("ViewModel")
                 local vmPart = vm and vm:FindFirstChild("HumanoidRootPart")
                 if vmPart then
+                    local origCF = vmPart.CFrame
                     vmPart.CFrame = CFrame.new(vmPart.Position, predictedPos)
+                    task.defer(function()
+                        pcall(function() vmPart.CFrame = origCF end)
+                    end)
                 end
-
             end)
         end
 
