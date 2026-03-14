@@ -1128,7 +1128,7 @@ do
 
         do
             local WindowOutline = Utility.AddDrawing("Square", {
-                Size = _G.EH_PAID_EXECUTOR and Vector2.new(210, 34) or Vector2.new(175, 28),
+                Size = _G.EH_PAID_EXECUTOR and Vector2.new(240, 38) or Vector2.new(175, 28),
                 Thickness = 1,
                 Color = Library.Theme.Outline,
                 Visible = true,
@@ -1175,7 +1175,7 @@ do
 
             local WindowText = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
-                Size = _G.EH_PAID_EXECUTOR and 22 or 18,
+                Size = _G.EH_PAID_EXECUTOR and 26 or 18,
                 Color = Library.Theme.Text,
                 Text = "Keybinds",
                 Position = Vector2.new(WindowOutlineBorder.Position.X + (WindowOutlineBorder.Size.X / 2), WindowOutlineBorder.Position.Y + 2),
@@ -1186,7 +1186,7 @@ do
 
             local CurrentBinds = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
-                Size = _G.EH_PAID_EXECUTOR and 22 or 18,
+                Size = _G.EH_PAID_EXECUTOR and 26 or 18,
                 Color = Library.Theme.Text,
                 Text = "",
                 Position = Vector2.new(WindowOutlineBorder.Position.X + (WindowOutlineBorder.Size.X / 2), WindowOutlineBorder.Position.Y + 10),
@@ -1201,8 +1201,8 @@ do
                 if cur == _kbLastBind then return end
                 _kbLastBind = cur
                 CurrentBinds.Text = cur
-                local _kbMin = _G.EH_PAID_EXECUTOR and 210 or 175
-local _kbH   = _G.EH_PAID_EXECUTOR and 34 or 28
+                local _kbMin = _G.EH_PAID_EXECUTOR and 240 or 175
+local _kbH   = _G.EH_PAID_EXECUTOR and 38 or 28
 local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _kbMin and CurrentBinds.TextBounds.X + 10 or _kbMin, _kbH + CurrentBinds.TextBounds.Y - 6) or Vector2.new(_kbMin, _kbH)
                 WindowOutline.Size = CalcuationSize
                 WindowOutlineBorder.Size = Vector2.new(WindowOutline.Size.X - 2, WindowOutline.Size.Y - 2)
@@ -4706,7 +4706,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
 
             local WindowTitle = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
-                Size = _G.EH_PAID_EXECUTOR and 22 or 18,
+                Size = _G.EH_PAID_EXECUTOR and 26 or 18,
                 Color = Library.Theme.Text,
                 Text = Watermark.Title .. " | " .. ("%s, %s, %s"):format(os.date("%B"), os.date("%d"), os.date("%Y")),
                 Position = Vector2.new(WindowFrame.Position.X + (WindowFrame.Size.X / 2), WindowOutlineBorder.Position.Y + 4),
@@ -4715,7 +4715,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                 Outline = false
             }, Library.Watermark)
 
-            WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + (_G.EH_PAID_EXECUTOR and 36 or 30), _G.EH_PAID_EXECUTOR and 34 or 28)
+            WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + (_G.EH_PAID_EXECUTOR and 36 or 30), _G.EH_PAID_EXECUTOR and 38 or 28)
             WindowTopline.Size = Vector2.new(WindowOutline.Size.X - 2, 2)
             WindowFrame.Size = Vector2.new(WindowOutline.Size.X - 2, WindowOutline.Size.Y - 2)
 
@@ -4739,7 +4739,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                     if newTxt ~= _wmLast then
                         WindowTitle.Text = newTxt
                         _wmLast = newTxt
-                        WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + (_G.EH_PAID_EXECUTOR and 38 or 34), _G.EH_PAID_EXECUTOR and 34 or 28)
+                        WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + (_G.EH_PAID_EXECUTOR and 38 or 34), _G.EH_PAID_EXECUTOR and 38 or 28)
                         WindowOutlineBorder.Size = WindowOutline.Size
                         WindowTopline.Size = Vector2.new(WindowOutline.Size.X - 2, 1)
                         WindowFrame.Size = Vector2.new(WindowOutline.Size.X - 2, WindowOutline.Size.Y - 2)
