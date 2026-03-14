@@ -121,8 +121,14 @@ local _ovItems = {
 
 local function _applyToItem(item, skinName)
     if _ovItems[item.Name] or _ovItems[_curItem] then
-        -- DV2 etc: item IS the ObjectValue in Inventory, just rename it
-        item.Name = skinName
+        -- DV2 etc: set the ObjectValue's Value to the skin model in RS.Skins
+        pcall(function()
+            local cat = _itemToCat[_curItem]
+            local skinInst = game:GetService("ReplicatedStorage").Skins
+                          :FindFirstChild(cat)
+                          :FindFirstChild(skinName)
+            item.Value = skinInst
+        end)
     else
         -- Normal items: set Skin attribute + apply to attachments
         pcall(function() item:SetAttribute("Skin", skinName) end)
