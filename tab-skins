@@ -113,36 +113,38 @@ PickSection:Button({Title = "next skin >", Callback = function()
 end})
 
 -- ─── Apply helpers ────────────────────────────────────────────────────────────
+-- Items that use ObjectValue rename instead of Skin attribute
+local _ovItems = {
+    ["DV2"]  = true,
+    ["DV-2"] = true,
+}
+
 local function _applyToItem(item, skinName)
-    -- Set Skin attribute on the item itself
-    pcall(function() item:SetAttribute("Skin", skinName) end)
-    -- Set/create an ObjectValue named "Skin" pointing to the skin instance
-    pcall(function()
-        local rs   = game:GetService("ReplicatedStorage")
-        local cat  = _itemToCat[item.Name]
-        local skinInst = cat and rs.Skins and rs.Skins:FindFirstChild(cat)
-                      and rs.Skins[cat]:FindFirstChild(skinName)
-        local ov = item:FindFirstChild("Skin")
-        if not ov then
-            ov = Instance.new("ObjectValue")
-            ov.Name   = "Skin"
-            ov.Parent = item
-        end
-        if skinInst and skinName ~= "" then
-            ov.Value = skinInst
-        else
-            ov.Value = nil
-        end
-    end)
-    -- Also apply to Attachments
-    pcall(function()
-        local att = item:FindFirstChild("Attachments")
-        if att then
-            for _, a in ipairs(att:GetChildren()) do
-                pcall(function() a:SetAttribute("Skin", skinName) end)
+    if _ovItems[item.Name] then
+        -- For these items: find the ObjectValue in Inventory whose Value == item,
+        -- then rename that ObjectValue to the skin name.
+        pcall(function()
+            local inv = item.Parent
+            if not inv then return end
+            for _, child in ipairs(inv:GetChildren()) do
+                if child:IsA("ObjectValue") and child.Value == item then
+                    child.Name = skinName
+                    break
+                end
             end
-        end
-    end)
+        end)
+    else
+        -- Normal items: set Skin attribute + apply to attachments
+        pcall(function() item:SetAttribute("Skin", skinName) end)
+        pcall(function()
+            local att = item:FindFirstChild("Attachments")
+            if att then
+                for _, a in ipairs(att:GetChildren()) do
+                    pcall(function() a:SetAttribute("Skin", skinName) end)
+                end
+            end
+        end)
+    end
 end
 
 PickSection:Button({Title = "apply skin", Callback = function()
