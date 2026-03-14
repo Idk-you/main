@@ -1,0 +1,144 @@
+local Window  = _G.EH_Window
+local Library = _G.EH_Library
+
+-- ─── Read skins + inventory BEFORE building UI ────────────────────────────────
+local _allSkins   = {"(none)"}
+local _invItems   = {"(all items)"}
+local _invItemMap = {}   -- name → instance
+
+pcall(function()
+    local skinsFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Skins")
+    if skinsFolder then
+        for _, s in ipairs(skinsFolder:GetChildren()) do
+            _allSkins[#_allSkins + 1] = s.Name
+        end
+        table.sort(_allSkins, function(a, b)
+            if a == "(none)" then return true end
+            if b == "(none)" then return false end
+            return a < b
+        end)
+    end
+end)
+
+pcall(function()
+    local rs  = game:GetService("ReplicatedStorage")
+    local inv = rs.Players
+             and rs.Players:FindFirstChild(player.Name)
+             and rs.Players[player.Name]:FindFirstChild("Inventory")
+    if inv then
+        local names = {}
+        for _, item in ipairs(inv:GetChildren()) do
+            names[#names + 1] = item.Name
+            _invItemMap[item.Name] = item
+        end
+        table.sort(names)
+        for _, n in ipairs(names) do
+            _invItems[#_invItems + 1] = n
+        end
+    end
+end)
+
+-- ─── Tab + Sections ───────────────────────────────────────────────────────────
+local SkinsTab = Window:Tab("skins")
+
+local ApplySection  = SkinsTab:Section("apply skin",    "Left")
+local StatusSection = SkinsTab:Section("info",          "Left")
+local BrowseSection = SkinsTab:Section("skin browser",  "Right")
+
+-- ─── Status labels ────────────────────────────────────────────────────────────
+local _lblStatus = StatusSection:Label("status: ready")
+local _lblSkins  = StatusSection:Label("skins found: " .. (#_allSkins - 1))
+local _lblItems  = StatusSection:Label("items found: " .. (#_invItems - 1))
+
+-- ─── Apply section ────────────────────────────────────────────────────────────
+local _skinDropdown = ApplySection:Dropdown({
+    Title   = "skin",
+    Flag    = "SkinSelected",
+    List    = _allSkins,
+    Default = _allSkins[1],
+})
+
+local _itemDropdown = ApplySection:Dropdown({
+    Title   = "item  (all = every item)",
+    Flag    = "SkinItem",
+    List    = _invItems,
+    Default = _invItems[1],
+})
+
+local function _setAttrSafe(inst, skinName)
+    pcall(function()
+        inst:SetAttribute("Skin", skinName)
+    end)
+end
+
+local function _applyToItem(item, skinName)
+    _setAttrSafe(item, skinName)
+    -- attachments folder
+    pcall(function()
+        local attFolder = item:FindFirstChild("Attachments")
+        if attFolder then
+            for _, att in ipairs(attFolder:GetChildren()) do
+                _setAttrSafe(att, skinName)
+            end
+        end
+    end)
+end
+
+local function _doApply()
+    local skinName = Library.Flags["SkinSelected"] or "(none)"
+    local itemName = Library.Flags["SkinItem"]     or "(all items)"
+    if skinName == "(none)" then skinName = "" end
+
+    local ok, err = pcall(function()
+        local rs  = game:GetService("ReplicatedStorage")
+        local inv = rs.Players
+                 and rs.Players:FindFirstChild(player.Name)
+                 and rs.Players[player.Name]:FindFirstChild("Inventory")
+        if not inv then error("Inventory not found") end
+
+        if itemName == "(all items)" then
+            local count = 0
+            for _, item in ipairs(inv:GetChildren()) do
+                _applyToItem(item, skinName)
+                count += 1
+            end
+            _lblStatus:Set("applied '" .. (skinName == "" and "none" or skinName) .. "' to " .. count .. " items")
+        else
+            local item = inv:FindFirstChild(itemName)
+            if not item then error("Item not found: " .. itemName) end
+            _applyToItem(item, skinName)
+            _lblStatus:Set("applied '" .. (skinName == "" and "none" or skinName) .. "' to " .. itemName)
+        end
+    end)
+
+    if not ok then
+        _lblStatus:Set("error: " .. tostring(err):sub(1,45))
+    end
+end
+
+ApplySection:Button({Title = "apply skin", Callback = _doApply})
+
+ApplySection:Button({Title = "remove all skins", Callback = function()
+    pcall(function()
+        local rs  = game:GetService("ReplicatedStorage")
+        local inv = rs.Players
+                 and rs.Players:FindFirstChild(player.Name)
+                 and rs.Players[player.Name]:FindFirstChild("Inventory")
+        if not inv then return end
+        for _, item in ipairs(inv:GetChildren()) do
+            _applyToItem(item, "")
+        end
+        _lblStatus:Set("all skins removed")
+    end)
+end})
+
+-- ─── Skin browser (right column) ─────────────────────────────────────────────
+-- Shows a scrollable list of all skin names as labels
+BrowseSection:Label("── skin list ──")
+for i = 2, #_allSkins do   -- skip "(none)" entry
+    BrowseSection:Label(_allSkins[i])
+end
+
+-- ──────────────────────────────────────────────────────────────────────────────
+
+_G.EH_SkinsTab = SkinsTab
