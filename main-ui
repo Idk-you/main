@@ -7120,7 +7120,7 @@ local function _aaApply(hrp, hum)
     end
 end
 
-local function _aaEnable(on)
+function _aaEnable(on)
     _AA.enabled = on
     if _AA._aaConn then _AA._aaConn:Disconnect(); _AA._aaConn = nil end
     if on then
