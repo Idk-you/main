@@ -695,6 +695,109 @@ FarmerSection:Button({Title = "open farmer log", Callback = function()
 end})
 FarmerSection:Label("log -> ExchangeHook/farmer_log.txt")
 FarmerSection:Label("1) record  2) click west spawn button")
+-- ─── skin changer ─────────────────────────────────────────────────────────────
+local SkinSection = MiscTab:Section("skin changer", "Left")
+
+local _skinList    = {}
+local _skinIndex   = 1
+local _skinLabel   = SkinSection:Label("skin: none")
+local _skinStatus  = SkinSection:Label("status: -")
+
+-- build skin list from ReplicatedStorage.Skins
+local function _buildSkinList()
+    _skinList = {}
+    pcall(function()
+        local skinsFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Skins")
+        if skinsFolder then
+            for _, s in ipairs(skinsFolder:GetChildren()) do
+                _skinList[#_skinList + 1] = s.Name
+            end
+            table.sort(_skinList)
+        end
+    end)
+    if #_skinList == 0 then
+        _skinStatus:Set("status: no skins found")
+    else
+        _skinStatus:Set("status: " .. #_skinList .. " skins loaded")
+    end
+end
+
+-- apply chosen skin to ALL inventory items + their attachments
+local function _applySkin(skinName)
+    local ok, err = pcall(function()
+        local rs  = game:GetService("ReplicatedStorage")
+        local inv = rs:FindFirstChild("Players")
+                 and rs.Players:FindFirstChild(player.Name)
+                 and rs.Players[player.Name]:FindFirstChild("Inventory")
+        if not inv then error("Inventory not found") end
+
+        local applied = 0
+        for _, item in ipairs(inv:GetChildren()) do
+            pcall(function()
+                -- set or create Skin attribute on the item
+                item:SetAttribute("Skin", skinName)
+                applied += 1
+            end)
+            -- also apply to Attachments folder inside the item
+            pcall(function()
+                local attFolder = item:FindFirstChild("Attachments")
+                if attFolder then
+                    for _, att in ipairs(attFolder:GetChildren()) do
+                        pcall(function()
+                            att:SetAttribute("Skin", skinName)
+                        end)
+                    end
+                end
+            end)
+            -- apply to direct child instances that have a Skin attribute or need one
+            for _, child in ipairs(item:GetChildren()) do
+                pcall(function()
+                    if child:IsA("StringValue") and child.Name == "Skin" then
+                        child.Value = skinName
+                    end
+                end)
+            end
+        end
+        _skinStatus:Set("applied: " .. skinName .. " (" .. applied .. " items)")
+    end)
+    if not ok then
+        _skinStatus:Set("error: " .. tostring(err):sub(1, 40))
+    end
+end
+
+SkinSection:Button({Title = "refresh skin list", Callback = function()
+    _buildSkinList()
+    if #_skinList > 0 then
+        _skinIndex = 1
+        _skinLabel:Set("skin: " .. _skinList[_skinIndex])
+    end
+end})
+
+SkinSection:Button({Title = "< prev skin", Callback = function()
+    if #_skinList == 0 then _skinStatus:Set("status: refresh first") return end
+    _skinIndex = (_skinIndex - 2) % #_skinList + 1
+    _skinLabel:Set("skin: " .. _skinList[_skinIndex])
+end})
+
+SkinSection:Button({Title = "next skin >", Callback = function()
+    if #_skinList == 0 then _skinStatus:Set("status: refresh first") return end
+    _skinIndex = _skinIndex % #_skinList + 1
+    _skinLabel:Set("skin: " .. _skinList[_skinIndex])
+end})
+
+SkinSection:Button({Title = "apply skin", Callback = function()
+    if #_skinList == 0 then _skinStatus:Set("status: refresh first") return end
+    _applySkin(_skinList[_skinIndex])
+end})
+
+SkinSection:Button({Title = "remove skin", Callback = function()
+    _applySkin("")
+    _skinLabel:Set("skin: none")
+    _skinStatus:Set("status: skin removed")
+end})
+
+-- auto-load skin list on tab creation
+task.spawn(_buildSkinList)
 -- ──────────────────────────────────────────────────────────────────────────────
 
 
