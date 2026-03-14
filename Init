@@ -4,6 +4,7 @@ local MainTab   = _G.EH_MainTab
 local RageTab   = _G.EH_RageTab
 local VisTab    = _G.EH_VisTab
 local MiscTab   = _G.EH_MiscTab
+local SkinsTab  = _G.EH_SkinsTab
 local ExpTab    = _G.EH_ExpTab
 local ConfigTab = _G.EH_ConfigTab
 
