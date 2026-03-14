@@ -1,16 +1,18 @@
 local Window  = _G.EH_Window
 local Library = _G.EH_Library
 
--- ─── Build category→skins map directly from RS.Skins folders ─────────────────
--- Structure: RS.Skins[Category][SkinName]
--- e.g. RS.Skins.Melee.Thunder, RS.Skins.AKM.Arctic, etc.
-local _skinMap      = {}   -- { "AKM" = {"Arctic","Default",...}, "Melee" = {...} }
-local _categories   = {"(select category)"}
+-- ─── Build maps at load time ──────────────────────────────────────────────────
+-- _skinMap[catName] = {"SkinA","SkinB",...}  (from RS.Skins folders)
+-- _invItems = list of inventory item names
+-- _itemToCat[itemName] = catName  (best-guess match)
+
+local _skinMap  = {}
+local _invItems = {"(select item)"}
+local _itemToCat = {}
 
 pcall(function()
     local skinsFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Skins")
     if skinsFolder then
-        local cats = {}
         for _, catFolder in ipairs(skinsFolder:GetChildren()) do
             local list = {}
             for _, skin in ipairs(catFolder:GetChildren()) do
@@ -18,11 +20,35 @@ pcall(function()
             end
             table.sort(list)
             _skinMap[catFolder.Name] = list
-            cats[#cats + 1] = catFolder.Name
         end
-        table.sort(cats)
-        for _, c in ipairs(cats) do
-            _categories[#_categories + 1] = c
+    end
+end)
+
+pcall(function()
+    local rs  = game:GetService("ReplicatedStorage")
+    local inv = rs.Players
+             and rs.Players:FindFirstChild(player.Name)
+             and rs.Players[player.Name]:FindFirstChild("Inventory")
+    if inv then
+        local names = {}
+        for _, item in ipairs(inv:GetChildren()) do
+            names[#names + 1] = item.Name
+        end
+        table.sort(names)
+        for _, n in ipairs(names) do
+            _invItems[#_invItems + 1] = n
+            -- find matching skin category: exact match first, then prefix match
+            if _skinMap[n] then
+                _itemToCat[n] = n
+            else
+                for cat, _ in pairs(_skinMap) do
+                    if n:lower():find(cat:lower(), 1, true) or
+                       cat:lower():find(n:lower(), 1, true) then
+                        _itemToCat[n] = cat
+                        break
+                    end
+                end
+            end
         end
     end
 end)
@@ -32,47 +58,49 @@ local SkinsTab = Window:Tab("skins")
 local PickSection = SkinsTab:Section("skin changer", "Left")
 
 -- ─── State ────────────────────────────────────────────────────────────────────
-local _curCat   = nil
+local _curItem  = nil
 local _curSkins = {}
 local _skinIdx  = 1
 
 -- ─── Labels ───────────────────────────────────────────────────────────────────
-local _lblCat      = PickSection:Label("category: -")
+local _lblItem     = PickSection:Label("item: -")
 local _lblSkin     = PickSection:Label("skin: -")
 local _lblProgress = PickSection:Label("0 / 0")
 local _lblStatus   = PickSection:Label("status: ready")
 
--- ─── Category dropdown (uses RS.Skins folder names) ──────────────────────────
+-- ─── Item dropdown (inventory names) ─────────────────────────────────────────
 PickSection:Dropdown({
-    Title    = "skin category",
-    Flag     = "SkinCategory",
-    List     = _categories,
-    Default  = _categories[1],
+    Title    = "item",
+    Flag     = "SkinChangerItem",
+    List     = _invItems,
+    Default  = _invItems[1],
     Callback = function(v)
-        _curCat   = v
-        _curSkins = _skinMap[v] or {}
+        _curItem  = v
+        local cat = _itemToCat[v]
+        _curSkins = (cat and _skinMap[cat]) or {}
         _skinIdx  = 1
-        _lblCat:Set("category: " .. v)
+        _lblItem:Set("item: " .. v)
         if #_curSkins > 0 then
             _lblSkin:Set("skin: " .. _curSkins[_skinIdx])
             _lblProgress:Set("1 / " .. #_curSkins)
+            _lblStatus:Set("cat: " .. (cat or "?"))
         else
-            _lblSkin:Set("skin: (no skins)")
+            _lblSkin:Set("skin: (no skins for this item)")
             _lblProgress:Set("0 / 0")
+            _lblStatus:Set("no skin category matched")
         end
-        _lblStatus:Set("status: ready")
     end
 })
 
 PickSection:Button({Title = "< prev skin", Callback = function()
-    if #_curSkins == 0 then _lblStatus:Set("select a category first") return end
+    if #_curSkins == 0 then _lblStatus:Set("select an item first") return end
     _skinIdx = (_skinIdx - 2) % #_curSkins + 1
     _lblSkin:Set("skin: " .. _curSkins[_skinIdx])
     _lblProgress:Set(_skinIdx .. " / " .. #_curSkins)
 end})
 
 PickSection:Button({Title = "next skin >", Callback = function()
-    if #_curSkins == 0 then _lblStatus:Set("select a category first") return end
+    if #_curSkins == 0 then _lblStatus:Set("select an item first") return end
     _skinIdx = _skinIdx % #_curSkins + 1
     _lblSkin:Set("skin: " .. _curSkins[_skinIdx])
     _lblProgress:Set(_skinIdx .. " / " .. #_curSkins)
@@ -91,52 +119,26 @@ local function _applyToItem(item, skinName)
     end)
 end
 
--- Match inventory items to a category by checking RS.Skins[cat] exists
--- and the item name contains the category name (e.g. "AKM_47" → "AKM")
--- OR the item IS a direct child folder match
-local function _getInvItemsForCat(catName)
-    local matched = {}
-    pcall(function()
-        local rs  = game:GetService("ReplicatedStorage")
-        local inv = rs.Players[player.Name].Inventory
-        -- First try: exact folder name match (item named exactly "AKM")
-        local exact = inv:FindFirstChild(catName)
-        if exact then
-            matched[#matched + 1] = exact
-            return
-        end
-        -- Second try: inventory items whose name starts with or contains catName
-        for _, item in ipairs(inv:GetChildren()) do
-            if item.Name:lower():find(catName:lower(), 1, true) then
-                matched[#matched + 1] = item
-            end
-        end
-        -- Third try: ALL items if no match (user can remove skin safely)
-    end)
-    return matched
-end
-
 PickSection:Button({Title = "apply skin", Callback = function()
-    if not _curCat or _curCat == "(select category)" then
-        _lblStatus:Set("select a category first") return
+    if not _curItem or _curItem == "(select item)" then
+        _lblStatus:Set("select an item first") return
     end
     if #_curSkins == 0 then
-        _lblStatus:Set("no skins for " .. _curCat) return
+        _lblStatus:Set("no skins for " .. _curItem) return
     end
     local skinName = _curSkins[_skinIdx]
-    local items = _getInvItemsForCat(_curCat)
-    if #items == 0 then
-        _lblStatus:Set("no matching inv items for " .. _curCat) return
-    end
-    for _, item in ipairs(items) do
+    pcall(function()
+        local inv = game:GetService("ReplicatedStorage").Players[player.Name].Inventory
+        local item = inv:FindFirstChild(_curItem)
+        if not item then error("item not found") end
         _applyToItem(item, skinName)
-    end
-    _lblStatus:Set("applied '" .. skinName .. "' to " .. #items .. " item(s)")
+        _lblStatus:Set("applied: " .. skinName)
+    end)
 end})
 
-PickSection:Button({Title = "apply to ALL inventory", Callback = function()
-    if #_curSkins == 0 or not _curCat or _curCat == "(select category)" then
-        _lblStatus:Set("select a category with skins first") return
+PickSection:Button({Title = "apply to ALL items", Callback = function()
+    if #_curSkins == 0 or not _curItem or _curItem == "(select item)" then
+        _lblStatus:Set("select an item with skins first") return
     end
     local skinName = _curSkins[_skinIdx]
     local count = 0
@@ -150,13 +152,16 @@ PickSection:Button({Title = "apply to ALL inventory", Callback = function()
     _lblStatus:Set("applied '" .. skinName .. "' to " .. count .. " items")
 end})
 
-PickSection:Button({Title = "remove skin (this category)", Callback = function()
-    if not _curCat or _curCat == "(select category)" then
-        _lblStatus:Set("select a category first") return
+PickSection:Button({Title = "remove skin from item", Callback = function()
+    if not _curItem or _curItem == "(select item)" then
+        _lblStatus:Set("select an item first") return
     end
-    local items = _getInvItemsForCat(_curCat)
-    for _, item in ipairs(items) do _applyToItem(item, "") end
-    _lblStatus:Set("skin removed from " .. #items .. " item(s)")
+    pcall(function()
+        local inv = game:GetService("ReplicatedStorage").Players[player.Name].Inventory
+        local item = inv:FindFirstChild(_curItem)
+        if item then _applyToItem(item, "") end
+    end)
+    _lblStatus:Set("skin removed from " .. _curItem)
 end})
 
 PickSection:Button({Title = "remove ALL skins", Callback = function()
