@@ -135,10 +135,6 @@ end}):Colorpicker({Color = Color3.fromRGB(0, 255, 0), Flag = "CorpseColor", Call
     BrzS.corpseColor = c
     if BrzS.corpseESP then _refreshCorpseESP(false); _refreshCorpseESP(true) end
 end})
-WorldMiscSection:Toggle({Title = "inventory check corpses", Flag = "InvCheckCorpse", Default = false, Callback = function(s)
-    BrzS.inventoryCheckCorpse = s
-end})
-
 -- mod + cheat detectors (free - useful for everyone)
 WorldMiscSection:Toggle({Title = "mod detector", Flag = "ModDetector", Default = false, Callback = function(s)
     BrzS.modDetector = s
@@ -278,62 +274,115 @@ VMSection:Button({Title = "reset offsets", Callback = function()
     BrzS.vmRotX = 0; BrzS.vmRotY = 0; BrzS.vmRotZ = 0
 end})
 
-local PlrInfoSection = MiscTab:Section("my reports", "Left")
+local PlrInfoSection = MiscTab:Section("player reports", "Left")
 
 do
-    local _rptLabel = PlrInfoSection:Label("reports: loading...")
-    local _flagsLabel = PlrInfoSection:Label("flags: loading...")
-    local _hsrLabel = PlrInfoSection:Label("hsr: loading...")
-    local _kdLabel = PlrInfoSection:Label("kd: loading...")
-    local _ageLabel = PlrInfoSection:Label("account age: loading...")
+    local _nameLabel   = PlrInfoSection:Label("player: " .. player.Name)
+    local _rptLabel    = PlrInfoSection:Label("reports: -")
+    local _flagsLabel  = PlrInfoSection:Label("flags: -")
+    local _hsrLabel    = PlrInfoSection:Label("hsr: -")
+    local _kdLabel     = PlrInfoSection:Label("k/d: -")
+    local _ageLabel    = PlrInfoSection:Label("account age: " .. player.AccountAge .. "d")
 
-    local function _updateMyStats()
+    -- target player name (defaults to self)
+    local _targetName = player.Name
+
+    local _targetDD = nil
+    local _playerList = {player.Name}
+    for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+        if plr.Name ~= player.Name then
+            _playerList[#_playerList + 1] = plr.Name
+        end
+    end
+    _targetDD = PlrInfoSection:Dropdown({
+        Title    = "target",
+        Flag     = "ReportTarget",
+        List     = _playerList,
+        Default  = _playerList[1],
+        Callback = function(v)
+            _targetName = v
+            _nameLabel:Set("player: " .. v)
+        end
+    })
+
+    local function _getEntry(name)
+        local rl = ReplicatedStorage:FindFirstChild("ReportList")
+        if not rl then return nil end
+        -- Try direct child: ReportList[name]
+        local en = rl:FindFirstChild(name)
+        if en then return en end
+        -- Try ReportList.Recent[name]
+        local recent = rl:FindFirstChild("Recent")
+        if recent then
+            en = recent:FindFirstChild(name)
+            if en then return en end
+        end
+        -- Try ReportList.MostWanted[name]
+        local mw = rl:FindFirstChild("MostWanted")
+        if mw then
+            en = mw:FindFirstChild(name)
+            if en then return en end
+        end
+        return nil
+    end
+
+    local function _updateStats()
         pcall(function()
+            local name = _targetName
+            -- kills / deaths from RS.Players
             local statsFolder = ReplicatedStorage:FindFirstChild("Players")
-            local myStats = statsFolder and statsFolder:FindFirstChild(player.Name)
-            if not myStats then
-                _rptLabel:Set("reports: no data"); return
+            local pStats = statsFolder and statsFolder:FindFirstChild(name)
+            if pStats then
+                local ws = pStats:FindFirstChild("Status")
+                       and pStats.Status:FindFirstChild("Journey")
+                       and pStats.Status.Journey:FindFirstChild("WipeStatistics")
+                if ws then
+                    local k = ws:GetAttribute("Kills") or 0
+                    local d = math.max(ws:GetAttribute("Deaths") or 1, 1)
+                    _kdLabel:Set("k/d: " .. k .. " / " .. d .. " (" .. string.format("%.2f", k/d) .. ")")
+                else
+                    _kdLabel:Set("k/d: no data")
+                end
+                -- reports from UAC
+                local uac = pStats:FindFirstChild("Status") and pStats.Status:FindFirstChild("UAC")
+                local rptFolder = uac and uac:FindFirstChild("Reports")
+                local rptCount = 0
+                if rptFolder then
+                    for _ in pairs(rptFolder:GetAttributes()) do rptCount += 1 end
+                end
+                _rptLabel:Set("reports: " .. rptCount)
+            else
+                _rptLabel:Set("reports: no RS.Players data")
+                _kdLabel:Set("k/d: -")
             end
-
-            -- reports
-            local uac = myStats:FindFirstChild("Status") and myStats.Status:FindFirstChild("UAC")
-            local rptFolder = uac and uac:FindFirstChild("Reports")
-            local rptCount = 0
-            if rptFolder then
-                for _ in pairs(rptFolder:GetAttributes()) do rptCount += 1 end
-            end
-            _rptLabel:Set("reports: " .. rptCount)
 
             -- flags / HSR from ReportList
-            local rl = ReplicatedStorage:FindFirstChild("ReportList")
-            local en = rl and (
-                (rl:FindFirstChild("MostWanted") and rl.MostWanted:FindFirstChild(player.Name)) or
-                (rl:FindFirstChild("Recent") and rl.Recent:FindFirstChild(player.Name))
-            )
-            local flags = en and (en:GetAttribute("TotalFlags") or 0) or 0
-            local hsr   = en and (en:GetAttribute("HSR") or 0) or 0
-            _flagsLabel:Set("flags: " .. flags)
-            _hsrLabel:Set("hsr: " .. hsr .. "%")
-
-            -- kills / deaths
-            local ws = myStats:FindFirstChild("Status") and myStats.Status:FindFirstChild("Journey")
-                       and myStats.Status.Journey:FindFirstChild("WipeStatistics")
-            if ws then
-                local k = ws:GetAttribute("Kills") or 0
-                local d = math.max(ws:GetAttribute("Deaths") or 1, 1)
-                _kdLabel:Set("k/d: " .. k .. " / " .. d .. " (" .. string.format("%.2f", k/d) .. ")")
+            local en = _getEntry(name)
+            if en then
+                local flags = en:GetAttribute("TotalFlags") or en:GetAttribute("Flags") or 0
+                local hsr   = en:GetAttribute("HSR") or en:GetAttribute("HeadshotRatio") or 0
+                _flagsLabel:Set("flags: " .. flags)
+                _hsrLabel:Set("hsr: " .. math.floor(hsr * 100 + 0.5) .. "%")
+            else
+                _flagsLabel:Set("flags: not in ReportList")
+                _hsrLabel:Set("hsr: -")
             end
 
-            -- account age
-            _ageLabel:Set("account age: " .. player.AccountAge .. "d")
+            -- account age (only works for local player)
+            if name == player.Name then
+                _ageLabel:Set("account age: " .. player.AccountAge .. "d")
+            else
+                local plrObj = game:GetService("Players"):FindFirstChild(name)
+                _ageLabel:Set("account age: " .. (plrObj and plrObj.AccountAge .. "d" or "?"))
+            end
         end)
     end
 
     PlrInfoSection:Button({Title = "refresh stats", Callback = function()
-        task.spawn(_updateMyStats)
+        task.spawn(_updateStats)
     end})
 
-    task.spawn(function() task.wait(3); _updateMyStats() end)
+    task.spawn(function() task.wait(3); _updateStats() end)
 end
 
 
