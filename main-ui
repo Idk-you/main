@@ -7010,11 +7010,8 @@ RunService.Heartbeat:Connect(function()
         return
     end
 
-    _saSelectPart()
-    _saFindTarget()
-    _saRunAimbot()
-    _saHandleFreeze()
-    _saResolverTick()
+    -- SA disabled
+    -- _saSelectPart(); _saFindTarget(); _saRunAimbot(); _saHandleFreeze(); _saResolverTick()
 end)
 
 -- State managed by BrzS.antiAimEnabled and sub-options.
