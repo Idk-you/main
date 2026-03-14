@@ -121,14 +121,8 @@ local _ovItems = {
 
 local function _applyToItem(item, skinName)
     if _ovItems[item.Name] or _ovItems[_curItem] then
-        -- DV2 etc: set the ObjectValue's Value to the skin model in RS.Skins
-        pcall(function()
-            local cat = _itemToCat[_curItem]
-            local skinInst = game:GetService("ReplicatedStorage").Skins
-                          :FindFirstChild(cat)
-                          :FindFirstChild(skinName)
-            item.Value = skinInst
-        end)
+        -- DV2 etc: rename the ObjectValue's Name to the skin name
+        item.Name = skinName
     else
         -- Normal items: set Skin attribute + apply to attachments
         pcall(function() item:SetAttribute("Skin", skinName) end)
@@ -153,7 +147,26 @@ PickSection:Button({Title = "apply skin", Callback = function()
     local skinName = _curSkins[_skinIdx]
     pcall(function()
         local inv = game:GetService("ReplicatedStorage").Players[player.Name].Inventory
-        local item = inv:FindFirstChild(_curItem)
+        local item = nil
+        if _ovItems[_curItem] then
+            -- After rename, the ObjectValue may have a different name.
+            -- Find it by checking which ObjectValue's Value is the actual item instance.
+            -- First try exact name match (first apply)
+            item = inv:FindFirstChild(_curItem)
+            -- If not found, scan all ObjectValues for one whose Value references the weapon
+            if not item then
+                for _, child in ipairs(inv:GetChildren()) do
+                    if child:IsA("ObjectValue") and child.Value and
+                       child.Value:IsA("Model") and 
+                       child.Value:GetAttribute("FireMode") == "Melee" then
+                        item = child
+                        break
+                    end
+                end
+            end
+        else
+            item = inv:FindFirstChild(_curItem)
+        end
         if not item then error("item not found: " .. _curItem) end
         _applyToItem(item, skinName)
         _lblStatus:Set("applied: " .. skinName)
