@@ -6933,36 +6933,7 @@ pcall(function()
 end)
 
 local function _saAutoShootTick()
-    if not _SA.autoShoot or not _SA.enabled or not _SA.lastTarget then return end
-    if not _saEnsureRemotes() then return end
-    local tp = _saGetTargetPart()
-    if not tp then return end
-    local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if not myHRP or (tp.Position - myHRP.Position).Magnitude > 2000 then return end
-    if not _saIsVisible(_SA.lastTarget) then return end
-
-    local vm = cam:FindFirstChild("ViewModel")
-    if not (vm and vm:FindFirstChild("Item") and vm.Item:FindFirstChild("Offsets")) then return end
-    local ap = vm.Item.Offsets:FindFirstChild("AimPart")
-    if not ap then return end
-
-    ap.CFrame = CFrame.lookAt(ap.Position, tp.Position)
-
-    local now = tick()
-    if now - _SA.lastFireTime < _SA.instantHitDelay then return end
-    _SA.lastFireTime = now
-    local seed = math.random(-10000, 10000)
-    local success = _saRemFP:InvokeServer(Vector3.new(0/0, 0/0, 0/0), seed, now)
-    if success then
-        task.spawn(function()
-            _saRemPI:FireServer(
-                tp,
-                tp.CFrame:ToObjectSpace(CFrame.new(tp.Position + Vector3.new(0, 1, 0) * 0.01)),
-                seed,
-                0/0
-            )
-        end)
-    end
+    -- disabled: auto-shoot removed (sends wrong args to FireProjectile causing errors)
 end
 
 local function _saResolverTick()
