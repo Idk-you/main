@@ -37,8 +37,14 @@ pcall(function()
         table.sort(names)
         for _, n in ipairs(names) do
             _invItems[#_invItems + 1] = n
-            -- find matching skin category: exact match first, then prefix match
-            if _skinMap[n] then
+            -- hardcoded overrides for known mismatches
+            local _overrides = {
+                ["DV2"]  = "Melee",
+                ["DV-2"] = "Melee",
+            }
+            if _overrides[n] then
+                _itemToCat[n] = _overrides[n]
+            elseif _skinMap[n] then
                 _itemToCat[n] = n
             else
                 for cat, _ in pairs(_skinMap) do
