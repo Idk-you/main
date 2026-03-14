@@ -16,7 +16,15 @@ pcall(function()
         for _, catFolder in ipairs(skinsFolder:GetChildren()) do
             local list = {}
             for _, skin in ipairs(catFolder:GetChildren()) do
-                list[#list + 1] = skin.Name
+                local attrName
+                if catFolder.Name == "Melee" then
+                    attrName = skin:GetAttribute("ModelSkin")
+                           or skin:GetAttribute("Name")
+                           or skin.Name
+                else
+                    attrName = skin.Name
+                end
+                list[#list + 1] = attrName
             end
             table.sort(list)
             _skinMap[catFolder.Name] = list
@@ -149,16 +157,12 @@ PickSection:Button({Title = "apply skin", Callback = function()
         local inv = game:GetService("ReplicatedStorage").Players[player.Name].Inventory
         local item = nil
         if _ovItems[_curItem] then
-            -- After rename, the ObjectValue may have a different name.
-            -- Find it by checking which ObjectValue's Value is the actual item instance.
-            -- First try exact name match (first apply)
+            -- First try by original name, then scan by Slot attribute
             item = inv:FindFirstChild(_curItem)
-            -- If not found, scan all ObjectValues for one whose Value references the weapon
             if not item then
                 for _, child in ipairs(inv:GetChildren()) do
-                    if child:IsA("ObjectValue") and child.Value and
-                       child.Value:IsA("Model") and 
-                       child.Value:GetAttribute("FireMode") == "Melee" then
+                    if child:IsA("ObjectValue") and
+                       child:GetAttribute("Slot") == "Melee" then
                         item = child
                         break
                     end
