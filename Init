@@ -317,6 +317,8 @@ RunService.Heartbeat:Connect(function(dt)
 
     espS.enabled        = F["ESPEnabled"]    or false
     espS.showName       = F["ESPNames"]      or false
+    espS.showHSR        = F["ESPShowHSR"]    or false
+    espS.showReports    = F["ESPShowReports"] or false
     espS.showDistance   = F["ESPDist"]       or false
     espS.showHealth     = F["ESPHealth"]     or false
     espS.showWeapon     = F["ESPWeapon"]     or false
