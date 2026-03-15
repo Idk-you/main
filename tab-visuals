@@ -4,7 +4,7 @@ if not _SA then _SA = {} end
 if not _AA then _AA = {} end
 if not _UG then _UG = {} end
 
-local VisTab = Window:Tab("visuals")
+local VisTab = Window:Tab("vis")
 
 local WldSection = VisTab:Section("world", "Left")
 WldSection:Toggle({Title = "fullbright", Flag = "WldFullbright", Callback = function(s)
