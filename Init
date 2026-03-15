@@ -8,6 +8,79 @@ local SkinsTab  = _G.EH_SkinsTab
 local ExpTab    = _G.EH_ExpTab
 local ConfigTab = _G.EH_ConfigTab
 
+-- ─── Config functions ─────────────────────────────────────────────────────────
+local CFG_FOLDER = "ExchangeHook/Configs"
+local function cfgEnsure()
+    pcall(function()
+        if not isfolder("ExchangeHook") then makefolder("ExchangeHook") end
+        if not isfolder(CFG_FOLDER) then makefolder(CFG_FOLDER) end
+    end)
+end
+
+function cfgList()
+    local files = {}
+    pcall(function()
+        cfgEnsure()
+        for _, f in ipairs(listfiles(CFG_FOLDER)) do
+            local name = f:gsub(".*/",""):gsub("%.json$","")
+            if name ~= "" then files[#files+1] = name end
+        end
+    end)
+    return files
+end
+
+function cfgSave(name)
+    if not name or name == "" then return false end
+    name = name:gsub("[^%w%-%_%. ]",""):sub(1,32)
+    if name == "" then return false end
+    cfgEnsure()
+    local snap = {}
+    for k, v in pairs(Library.Flags) do
+        local t = type(v)
+        if t == "boolean" or t == "number" or t == "string" then snap[k] = v end
+    end
+    pcall(function()
+        writefile(CFG_FOLDER .. "/" .. name .. ".json",
+            game:GetService("HttpService"):JSONEncode(snap))
+    end)
+    return true
+end
+
+function cfgLoad(name)
+    local ok, raw = pcall(function() return readfile(CFG_FOLDER .. "/" .. name .. ".json") end)
+    if not ok or not raw then return false end
+    local ok2, snap = pcall(function() return game:GetService("HttpService"):JSONDecode(raw) end)
+    if not ok2 or not snap then return false end
+    task.spawn(function()
+        local ORDER = {}
+        for flag, val in pairs(snap) do
+            if type(val) == "boolean" and val == true then ORDER[#ORDER+1] = flag end
+        end
+        for flag, val in pairs(snap) do
+            if not (type(val) == "boolean" and val == true) then
+                Library.Flags[flag] = val
+                local tog = Library._toggles and Library._toggles[flag]
+                if tog then tog:Set(val) end
+            end
+        end
+        for _, flag in ipairs(ORDER) do
+            Library.Flags[flag] = true
+            local tog = Library._toggles and Library._toggles[flag]
+            if tog then task.spawn(function() tog:Set(true) end) end
+            task.wait(0.04)
+        end
+    end)
+    return true
+end
+
+function cfgDelete(name)
+    pcall(function()
+        local path = CFG_FOLDER .. "/" .. name .. ".json"
+        if isfile(path) then delfile(path) end
+    end)
+end
+
+-- ──────────────────────────────────────────────────────────────────────────────
 Window.ToggleAnime(false)
 Window:SwitchTab(MainTab)
 LoadTime = math.floor((tick() - LoadTime) * 1000)
