@@ -1,70 +1,45 @@
 local Window  = _G.EH_Window
 local Library = _G.EH_Library
-if not _SA then _SA = {} end
-if not _AA then _AA = {} end
-if not _UG then _UG = {} end
 
-local ConfigTab    = Window:Tab("config")
-local CfgSaveSection = ConfigTab:Section("save config", "Left")
+local ConfigTab      = Window:Tab("config")
+local CfgSaveSection = ConfigTab:Section("save", "Left")
+local CfgListSection = ConfigTab:Section("saved configs", "Right")
 
+local _cfgName = ""
 
-local CfgLoadSection = ConfigTab:Section("load config", "Right")
-
-local _cfgName    = ""
-local _cfgListBtns = {}
-
-local CfgNameLabel = CfgSaveSection:Button({Title = "name: (click to type)", Callback = function()
-
+CfgSaveSection:Button({Title = "name: (click to type)", Callback = function()
     local UIS2 = game:GetService("UserInputService")
     local RS2  = game:GetService("RunService")
     local C = {
-        out   = Color3.fromRGB(0,0,5),
-        acc   = Color3.fromRGB(255,155,205),
-        dark  = Color3.fromRGB(22,16,32),
-        hdr   = Color3.fromRGB(30,22,42),
-        line  = Color3.fromRGB(50,42,65),
-        field = Color3.fromRGB(38,28,55),
-        txt   = Color3.fromRGB(232,232,232),
-        dim   = Color3.fromRGB(165,150,180),
-        ok    = Color3.fromRGB(80,220,120),
+        out=Color3.fromRGB(0,0,5), acc=Color3.fromRGB(255,155,205),
+        dark=Color3.fromRGB(22,16,32), hdr=Color3.fromRGB(30,22,42),
+        field=Color3.fromRGB(38,28,55), txt=Color3.fromRGB(232,232,232),
+        ok=Color3.fromRGB(80,220,120),
     }
-    local VP  = workspace.CurrentCamera.ViewportSize
+    local VP = workspace.CurrentCamera.ViewportSize
     local W,H = 300,120
-    local px  = math.floor(VP.X/2 - W/2)
-    local py  = math.floor(VP.Y/2 - H/2)
+    local px = math.floor(VP.X/2 - W/2)
+    local py = math.floor(VP.Y/2 - H/2)
     local drws = {}
     local function D(t,p) local o=Drawing.new(t); for k,v in pairs(p) do pcall(function() o[k]=v end) end; o.Visible=true; drws[#drws+1]=o; return o end
     local function kill() for _,o in ipairs(drws) do pcall(function() o:Remove() end) end end
-
-    D("Square",{Size=Vector2.new(W,H),   Position=Vector2.new(px,py),     Color=C.out, Filled=true, ZIndex=60})
-    D("Square",{Size=Vector2.new(W-2,H-2),Position=Vector2.new(px+1,py+1),Color=C.acc, Filled=true, ZIndex=61})
-    D("Square",{Size=Vector2.new(W-4,H-4),Position=Vector2.new(px+2,py+2),Color=C.dark,Filled=true, ZIndex=62})
-    D("Square",{Size=Vector2.new(W-4,24), Position=Vector2.new(px+2,py+2),Color=C.hdr, Filled=true, ZIndex=62})
-    D("Text",{Text="config name",Position=Vector2.new(px+W/2,py+10),Font=Drawing.Fonts.Monospace,Size=12,Color=C.acc,Center=true,ZIndex=63})
-    local fbg  = D("Square",{Size=Vector2.new(W-16,20),Position=Vector2.new(px+8,py+34),Color=C.field,Filled=true,ZIndex=62})
-    local fbrd = D("Square",{Size=Vector2.new(W-14,22),Position=Vector2.new(px+7,py+33),Color=C.acc,Filled=false,Thickness=1,ZIndex=63})
-    local ftxt = D("Text",{Text=_cfgName,Position=Vector2.new(px+14,py+39),Font=Drawing.Fonts.Monospace,Size=11,Color=C.txt,Center=false,ZIndex=64})
-    local cur  = D("Text",{Text="|",Position=Vector2.new(px+14+ftxt.TextBounds.X,py+39),Font=Drawing.Fonts.Monospace,Size=11,Color=C.acc,Center=false,ZIndex=64})
+    D("Square",{Size=Vector2.new(W,H),Position=Vector2.new(px,py),Color=C.out,Filled=true,ZIndex=60})
+    D("Square",{Size=Vector2.new(W-2,H-2),Position=Vector2.new(px+1,py+1),Color=C.acc,Filled=true,ZIndex=61})
+    D("Square",{Size=Vector2.new(W-4,H-4),Position=Vector2.new(px+2,py+2),Color=C.dark,Filled=true,ZIndex=62})
+    D("Square",{Size=Vector2.new(W-4,24),Position=Vector2.new(px+2,py+2),Color=C.hdr,Filled=true,ZIndex=62})
+    D("Text",{Text="config name",Position=Vector2.new(px+W/2,py+10),Font=Drawing.Fonts.UI,Size=14,Color=C.acc,Center=true,ZIndex=63})
+    local ftxt = D("Text",{Text=_cfgName,Position=Vector2.new(px+14,py+39),Font=Drawing.Fonts.UI,Size=13,Color=C.txt,Center=false,ZIndex=64})
+    local cur  = D("Text",{Text="|",Position=Vector2.new(px+14+ftxt.TextBounds.X,py+39),Font=Drawing.Fonts.UI,Size=13,Color=C.acc,Center=false,ZIndex=64})
     local obtn = D("Square",{Size=Vector2.new(W-16,22),Position=Vector2.new(px+8,py+66),Color=C.acc,Filled=true,ZIndex=62})
-    D("Text",{Text="confirm",Position=Vector2.new(px+W/2,py+72),Font=Drawing.Fonts.Monospace,Size=11,Color=C.dark,Center=true,ZIndex=63})
-
+    D("Text",{Text="confirm",Position=Vector2.new(px+W/2,py+72),Font=Drawing.Fonts.UI,Size=13,Color=C.dark,Center=true,ZIndex=63})
     local inp = _cfgName
     local done = false
     local bt, bon = 0, true
     local conns = {}
     local function cl(sig,fn) local c=sig:Connect(fn); conns[#conns+1]=c end
-    local function upd()
-        ftxt.Text = inp
-        cur.Position = Vector2.new(px+14+ftxt.TextBounds.X, py+39)
-    end
-    local function inR(ox2,oy2,ow,oh) local m=UIS2:GetMouseLocation(); return m.X>ox2 and m.X<ox2+ow and m.Y>oy2 and m.Y<oy2+oh end
-    local function confirm()
-        _cfgName = inp
-        done = true
-        kill()
-
-        for _,co in ipairs(conns) do pcall(function() co:Disconnect() end) end
-    end
+    local function upd() ftxt.Text=inp; cur.Position=Vector2.new(px+14+ftxt.TextBounds.X,py+39) end
+    local function inR(ox,oy,ow,oh) local m=UIS2:GetMouseLocation(); return m.X>ox and m.X<ox+ow and m.Y>oy and m.Y<oy+oh end
+    local function confirm() _cfgName=inp; done=true; kill(); for _,co in ipairs(conns) do pcall(function() co:Disconnect() end) end end
     cl(UIS2.InputBegan, function(inp2,gp)
         if done then return end
         if inp2.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -73,49 +48,47 @@ local CfgNameLabel = CfgSaveSection:Button({Title = "name: (click to type)", Cal
         end
         if inp2.UserInputType ~= Enum.UserInputType.Keyboard then return end
         local kc = inp2.KeyCode
-        local ctrl = UIS2:IsKeyDown(Enum.KeyCode.LeftControl) or UIS2:IsKeyDown(Enum.KeyCode.RightControl)
-        local sh   = UIS2:IsKeyDown(Enum.KeyCode.LeftShift) or UIS2:IsKeyDown(Enum.KeyCode.RightShift)
-        if kc == Enum.KeyCode.Return or kc == Enum.KeyCode.KeypadEnter then confirm()
+        local sh = UIS2:IsKeyDown(Enum.KeyCode.LeftShift) or UIS2:IsKeyDown(Enum.KeyCode.RightShift)
+        local ctrl = UIS2:IsKeyDown(Enum.KeyCode.LeftControl)
+        if kc == Enum.KeyCode.Return then confirm()
         elseif kc == Enum.KeyCode.Backspace then if #inp>0 then inp=inp:sub(1,-2); upd() end
         elseif ctrl and kc == Enum.KeyCode.V then
-            local p2 = ""
-            pcall(function() if typeof(getclipboard)=="function" then p2=getclipboard() or "" end end)
-            if p2 == "" then pcall(function()
-                local sg=Instance.new("ScreenGui"); sg.ResetOnSpawn=false; sg.Parent=game:GetService("CoreGui")
-                local tb=Instance.new("TextBox",sg); tb.Size=UDim2.new(0,1,0,1); tb.Position=UDim2.new(2,0,2,0)
-                tb.Text=""; tb.ClearTextOnFocus=false; tb:CaptureFocus(); task.wait(); p2=tb.Text; tb:ReleaseFocus(); sg:Destroy()
-            end) end
+            local p2="" ; pcall(function() if typeof(getclipboard)=="function" then p2=getclipboard() or "" end end)
             if p2~="" then inp=(inp..p2):sub(1,32); upd() end
         else
             local n=kc.Name; local ch=nil
             if #n==1 and n:match("[A-Z]") then ch=sh and n or n:lower()
             elseif n:match("^%d$") then ch=n
-            elseif n=="Space" then ch=" "
-            elseif n=="Minus" then ch=sh and "_" or "-"
-            end
+            elseif n=="Space" then ch=" " elseif n=="Minus" then ch=sh and "_" or "-" end
             if ch and #inp<32 then inp=inp..ch; upd() end
         end
     end)
     cl(RS2.Heartbeat, function(dt)
         if done then return end
         bt=bt+dt; if bt>=0.5 then bt=0; bon=not bon end
-        cur.Visible = bon
-        obtn.Color = inR(px+8,py+66,W-16,22) and Color3.fromRGB(255,185,220) or C.acc
+        cur.Visible=bon
+        obtn.Color=inR(px+8,py+66,W-16,22) and Color3.fromRGB(255,185,220) or C.acc
     end)
 end})
 
-CfgSaveSection:Button({Title = "save config", Callback = function()
-    local name = _cfgName
-    if name == "" then
-        Window.SendNotification("Normal", "type a config name first (click 'name' button)", 3)
-        return
+local _nameLabel = CfgSaveSection:Label("name: (none)")
+task.spawn(function()
+    local last = ""
+    while task.wait(0.2) do
+        if _cfgName ~= last then
+            last = _cfgName
+            _nameLabel:Set("name: " .. (_cfgName == "" and "(none)" or _cfgName))
+        end
     end
-    if cfgSave(name) then
-        Window.SendNotification("Normal", "config '" .. name .. "' saved", 3)
+end)
 
+CfgSaveSection:Button({Title = "save config", Callback = function()
+    if _cfgName == "" then Window.SendNotification("Normal", "type a name first", 3); return end
+    if cfgSave(_cfgName) then
+        Window.SendNotification("Normal", "saved: " .. _cfgName, 3)
         _cfgRefreshList()
     else
-        Window.SendNotification("Normal", "save failed - check name", 3)
+        Window.SendNotification("Normal", "save failed", 3)
     end
 end})
 
@@ -123,111 +96,76 @@ CfgSaveSection:Button({Title = "reset all to defaults", Callback = function()
     for flag, tog in pairs(Library._toggles or {}) do
         if tog.Toggled then tog:Set(false) end
     end
-    Window.SendNotification("Normal", "all toggles reset to off", 3)
+    Window.SendNotification("Normal", "all toggles reset", 3)
 end})
+
+-- ── Config list ───────────────────────────────────────────────────────────────
+local _MAX_SHOW  = 8
+local _cfgLabels = {}
+for i = 1, _MAX_SHOW do
+    _cfgLabels[i] = CfgListSection:Label(i .. ". ---")
+end
+local _cfgCountLabel = CfgListSection:Label("0 configs  |  page 1")
+local _cfgPage  = 1
+local _cfgNames = {}
+local _selectedSlot = 1
+local _slotLabel = CfgListSection:Label("selected: (none)")
+
+local function _renderPage()
+    local start = (_cfgPage - 1) * _MAX_SHOW + 1
+    local maxPage = math.max(1, math.ceil(#_cfgNames / _MAX_SHOW))
+    _cfgCountLabel:Set(#_cfgNames .. " configs  |  page " .. _cfgPage .. "/" .. maxPage)
+    for i = 1, _MAX_SHOW do
+        local idx = start + i - 1
+        _cfgLabels[i]:Set(i .. ". " .. (_cfgNames[idx] or "---"))
+    end
+    local idx = start + _selectedSlot - 1
+    _slotLabel:Set("selected: " .. (_cfgNames[idx] or "(empty)"))
+end
 
 function _cfgRefreshList()
-
+    _cfgNames = cfgList and cfgList() or {}
+    table.sort(_cfgNames)
+    _renderPage()
 end
 
-local function showCfgPicker(mode)
-
-    local names = cfgList()
-    if #names == 0 then
-        Window.SendNotification("Normal", "no saved configs found", 3)
-        return
+CfgListSection:Dropdown({
+    Title = "slot", Flag = "CfgSlot",
+    List = {"1","2","3","4","5","6","7","8"}, Default = "1",
+    Callback = function(v)
+        _selectedSlot = tonumber(v) or 1
+        local idx = (_cfgPage - 1) * _MAX_SHOW + _selectedSlot
+        _slotLabel:Set("selected: " .. (_cfgNames[idx] or "(empty)"))
     end
-    local UIS3 = game:GetService("UserInputService")
-    local RS3  = game:GetService("RunService")
-    local C = {
-        out=Color3.fromRGB(0,0,5), acc=Color3.fromRGB(255,155,205),
-        dark=Color3.fromRGB(22,16,32), hdr=Color3.fromRGB(30,22,42),
-        line=Color3.fromRGB(50,42,65), field=Color3.fromRGB(38,28,55),
-        txt=Color3.fromRGB(232,232,232), dim=Color3.fromRGB(165,150,180),
-        ok=Color3.fromRGB(80,220,120), red=Color3.fromRGB(220,60,60),
-        rowHov=Color3.fromRGB(45,32,62),
-    }
-    local ROW_H = 24
-    local W     = 260
-    local H     = 34 + #names * ROW_H + 8
-    local VP = workspace.CurrentCamera.ViewportSize
-    local px = math.floor(VP.X/2 - W/2)
-    local py = math.floor(VP.Y/2 - H/2)
-    local drws = {}
-    local done = false
-    local function D(t,p) local o=Drawing.new(t); for k,v in pairs(p) do pcall(function() o[k]=v end) end; o.Visible=true; drws[#drws+1]=o; return o end
-    local function kill() for _,o in ipairs(drws) do pcall(function() o:Remove() end) end end
-    local function inR(ox2,oy2,ow,oh) local m=UIS3:GetMouseLocation(); return m.X>ox2 and m.X<ox2+ow and m.Y>oy2 and m.Y<oy2+oh end
+})
 
-    D("Square",{Size=Vector2.new(W,H),   Position=Vector2.new(px,py),     Color=C.out,Filled=true,ZIndex=60})
-    D("Square",{Size=Vector2.new(W-2,H-2),Position=Vector2.new(px+1,py+1),Color=C.acc,Filled=true,ZIndex=61})
-    D("Square",{Size=Vector2.new(W-4,H-4),Position=Vector2.new(px+2,py+2),Color=C.dark,Filled=true,ZIndex=62})
-    D("Square",{Size=Vector2.new(W-4,26),Position=Vector2.new(px+2,py+2), Color=C.hdr,Filled=true,ZIndex=62})
-    D("Text",{Text=(mode=="load" and "load config" or "delete config"),
-        Position=Vector2.new(px+W/2,py+10),Font=Drawing.Fonts.Monospace,Size=12,Color=C.acc,Center=true,ZIndex=63})
-
-    local rowBgs, rowLabels = {}, {}
-    for i, name in ipairs(names) do
-        local ry = py + 34 + (i-1)*ROW_H
-        local bg = D("Square",{Size=Vector2.new(W-8,ROW_H-2),Position=Vector2.new(px+4,ry),Color=C.field,Filled=true,ZIndex=62})
-        local lbl2 = D("Text",{Text=name,Position=Vector2.new(px+12,ry+5),Font=Drawing.Fonts.Monospace,Size=11,Color=C.txt,Center=false,ZIndex=63})
-
-        local icon = mode=="load" and "> load" or "X del"
-        local icol = mode=="load" and C.ok or C.red
-        D("Text",{Text=icon,Position=Vector2.new(px+W-50,ry+5),Font=Drawing.Fonts.Monospace,Size=11,Color=icol,Center=false,ZIndex=63})
-        rowBgs[i] = bg
-        rowLabels[i] = name
-    end
-
-    local conns = {}
-    local function cl(sig,fn) local c=sig:Connect(fn); conns[#conns+1]=c end
-    cl(UIS3.InputBegan, function(inp2,gp)
-        if done then return end
-        if inp2.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-
-        if not inR(px,py,W,H) then done=true; kill(); for _,c in ipairs(conns) do pcall(function() c:Disconnect() end) end; return end
-        for i, bg in ipairs(rowBgs) do
-            local ry = py + 34 + (i-1)*ROW_H
-            if inR(px+4, ry, W-8, ROW_H-2) then
-                done = true
-                kill()
-                for _,c in ipairs(conns) do pcall(function() c:Disconnect() end) end
-                if mode == "load" then
-                    if cfgLoad(rowLabels[i]) then
-                        Window.SendNotification("Normal", "loaded '" .. rowLabels[i] .. "'", 3)
-                    else
-                        Window.SendNotification("Normal", "failed to load config", 3)
-                    end
-                else
-                    cfgDelete(rowLabels[i])
-                    Window.SendNotification("Normal", "deleted '" .. rowLabels[i] .. "'", 3)
-                end
-                return
-            end
-        end
-    end)
-    cl(RS3.Heartbeat, function()
-        if done then return end
-        for i, bg in ipairs(rowBgs) do
-            local ry = py + 34 + (i-1)*ROW_H
-            bg.Color = inR(px+4, ry, W-8, ROW_H-2) and C.rowHov or C.field
-        end
-    end)
-end
-
-CfgLoadSection:Button({Title = ">  load config", Callback = function()
-    showCfgPicker("load")
+CfgListSection:Button({Title = "< prev page", Callback = function()
+    if _cfgPage > 1 then _cfgPage = _cfgPage - 1; _renderPage() end
+end})
+CfgListSection:Button({Title = "next page >", Callback = function()
+    local maxPage = math.max(1, math.ceil(#_cfgNames / _MAX_SHOW))
+    if _cfgPage < maxPage then _cfgPage = _cfgPage + 1; _renderPage() end
+end})
+CfgListSection:Button({Title = "> load selected", Callback = function()
+    local idx = (_cfgPage - 1) * _MAX_SHOW + _selectedSlot
+    local name = _cfgNames[idx]
+    if not name then Window.SendNotification("Normal", "slot is empty", 3); return end
+    if cfgLoad(name) then Window.SendNotification("Normal", "loaded: " .. name, 3)
+    else Window.SendNotification("Normal", "load failed", 3) end
+end})
+CfgListSection:Button({Title = "X delete selected", Callback = function()
+    local idx = (_cfgPage - 1) * _MAX_SHOW + _selectedSlot
+    local name = _cfgNames[idx]
+    if not name then Window.SendNotification("Normal", "slot is empty", 3); return end
+    cfgDelete(name)
+    Window.SendNotification("Normal", "deleted: " .. name, 3)
+    _cfgRefreshList()
+end})
+CfgListSection:Button({Title = "[R] refresh list", Callback = function()
+    _cfgRefreshList()
+    Window.SendNotification("Normal", #_cfgNames .. " configs found", 3)
 end})
 
-CfgLoadSection:Button({Title = "X  delete config", Callback = function()
-    showCfgPicker("delete")
-end})
-
-CfgLoadSection:Button({Title = "[R]  refresh list", Callback = function()
-    local names = cfgList()
-    local msg = #names == 0 and "no configs saved" or table.concat(names, ", ")
-    Window.SendNotification("Normal", "configs: " .. msg, 5)
-end})
-
+task.spawn(function() task.wait(1); _cfgRefreshList() end)
 
 _G.EH_ConfigTab = ConfigTab
