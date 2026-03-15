@@ -1760,8 +1760,8 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                     Library.Flags[Options.Flag] = false
 
                     local ToggleInline = Utility.AddDrawing("Square", {
-                        Position = Vector2.new(SectionInline.Position.X + 8, SectionInline.Position.Y + 23 + Toggle.Axis),
-                        Size = Vector2.new(13, 13),
+                        Position = Vector2.new(SectionInline.Position.X + 8, SectionInline.Position.Y + (_G.EH_PAID_EXECUTOR and 28 or 23) + Toggle.Axis),
+                        Size = Vector2.new(_G.EH_PAID_EXECUTOR and 17 or 13, _G.EH_PAID_EXECUTOR and 17 or 13),
                         Thickness = 1,
                         Color = Library.Theme.Inline,
                         Visible = true,
@@ -1797,7 +1797,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
 
                     local ToggleTitle = Utility.AddDrawing("Text", {
                         Text = Options.Title,
-                        Position = Vector2.new(ToggleInline.Position.X + ToggleInline.Size.X + 8, ToggleInline.Position.Y),
+                        Position = Vector2.new(ToggleInline.Position.X + ToggleInline.Size.X + 8, ToggleInline.Position.Y + (_G.EH_PAID_EXECUTOR and 2 or 0)),
                         Center = false,
                         Outline = false,
                         Font = Library.Theme.Font,
@@ -1848,7 +1848,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                         end
                     end)
 
-                    Section.ContentAxis = Section.ContentAxis + ToggleOutline.Size.Y + 8
+                    Section.ContentAxis = Section.ContentAxis + ToggleOutline.Size.Y + (_G.EH_PAID_EXECUTOR and 12 or 8)
                     Tab.SectionAxis = {
                         Side == "Left" and Tab.SectionAxis[1] + ToggleOutline.Size.Y + 8 or Tab.SectionAxis[1],
                         Side == "Right" and Tab.SectionAxis[2] + ToggleOutline.Size.Y + 8 or Tab.SectionAxis[2]
@@ -2790,7 +2790,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                     end
 
                     local SliderInline = Utility.AddDrawing("Square", {
-                        Position = Vector2.new(SectionInline.Position.X + 8, SectionInline.Position.Y + 23 + Slider.Axis + 15),
+                        Position = Vector2.new(SectionInline.Position.X + 8, SectionInline.Position.Y + (_G.EH_PAID_EXECUTOR and 28 or 23) + Slider.Axis + (_G.EH_PAID_EXECUTOR and 18 or 15)),
                         Size = Vector2.new(SectionOutline.Size.X - 12, 13),
                         Thickness = 1,
                         Color = Library.Theme.Inline,
@@ -2958,7 +2958,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                         end
                     end)
 
-                    Section.ContentAxis = Section.ContentAxis + SliderOutline.Size.Y + 24
+                    Section.ContentAxis = Section.ContentAxis + SliderOutline.Size.Y + (_G.EH_PAID_EXECUTOR and 30 or 24)
                     Tab.SectionAxis = {
                         Side == "Left" and Tab.SectionAxis[1] + SliderOutline.Size.Y + 24 or Tab.SectionAxis[1],
                         Side == "Right" and Tab.SectionAxis[2] + SliderOutline.Size.Y + 24 or Tab.SectionAxis[2]
@@ -3061,7 +3061,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                         end
                     end)
 
-                    Section.ContentAxis = Section.ContentAxis + ButtonOutline.Size.Y + 6
+                    Section.ContentAxis = Section.ContentAxis + ButtonOutline.Size.Y + (_G.EH_PAID_EXECUTOR and 10 or 6)
                     Tab.SectionAxis = {
                         Side == "Left" and Tab.SectionAxis[1] + ButtonOutline.Size.Y + 6 or Tab.SectionAxis[1],
                         Side == "Right" and Tab.SectionAxis[2] + ButtonOutline.Size.Y + 6 or Tab.SectionAxis[2]
@@ -3624,7 +3624,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                     Library.Flags[Options.Flag] = Dropdown.Selected
 
                     local DropdownInline = Utility.AddDrawing("Square", {
-                        Position = Vector2.new(SectionInline.Position.X + 8, SectionInline.Position.Y + 23 + Dropdown.Axis + 16),
+                        Position = Vector2.new(SectionInline.Position.X + 8, SectionInline.Position.Y + (_G.EH_PAID_EXECUTOR and 28 or 23) + Dropdown.Axis + (_G.EH_PAID_EXECUTOR and 20 or 16)),
                         Size = Vector2.new(SectionOutline.Size.X - 12, Dropdown.BaseSize),
                         Thickness = 1,
                         Color = Library.Theme.Inline,
@@ -3849,7 +3849,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                         end
                     end)
 
-                    Section.ContentAxis = Section.ContentAxis + DropdownOutline.Size.Y + 20
+                    Section.ContentAxis = Section.ContentAxis + DropdownOutline.Size.Y + (_G.EH_PAID_EXECUTOR and 26 or 20)
                     Tab.SectionAxis = {
                         Side == "Left" and Tab.SectionAxis[1] + DropdownOutline.Size.Y + 20 or Tab.SectionAxis[1],
                         Side == "Right" and Tab.SectionAxis[2] + DropdownOutline.Size.Y + 20 or Tab.SectionAxis[2]
@@ -3888,7 +3888,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                         LabelTitle.Text = Txt
                     end
 
-                    Section.ContentAxis = Section.ContentAxis + LabelTitle.Size + 8
+                    Section.ContentAxis = Section.ContentAxis + LabelTitle.Size + (_G.EH_PAID_EXECUTOR and 12 or 8)
                     Tab.SectionAxis = {
                         Side == "Left" and Tab.SectionAxis[1] +  LabelTitle.Size + 8 or Tab.SectionAxis[1],
                         Side == "Right" and Tab.SectionAxis[2] +  LabelTitle.Size + 8 or Tab.SectionAxis[2]
