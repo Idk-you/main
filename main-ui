@@ -6438,7 +6438,7 @@ end)
 LoadTime = tick()
 
 local Loader = Library.CreateLoader("Exchange.hook", Vector2.new(300, 300))
-Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 760))
+Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 900))
 Window.Watermark("Exchange.hook | v1.3.2 | https://discord.gg/33V5ccwAEv")
 _G.EH_Window  = Window
 _G.EH_Library = Library
