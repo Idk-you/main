@@ -146,4 +146,135 @@ local function cfgDelete(name)
 end
 
 
+
+local PlrInfoSection = ExpTab:Section("player reports", "Right")
+
+do
+    local _nameLabel  = PlrInfoSection:Label("player: " .. player.Name)
+    local _rptLabel   = PlrInfoSection:Label("reports: -")
+    local _flagsLabel = PlrInfoSection:Label("flags: -")
+    local _hsrLabel   = PlrInfoSection:Label("hsr: -")
+    local _kdLabel    = PlrInfoSection:Label("k/d: -")
+    local _ageLabel   = PlrInfoSection:Label("age: " .. player.AccountAge .. "d")
+    local _targetName = player.Name
+
+    local _playerList = {player.Name}
+    for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+        if plr.Name ~= player.Name then _playerList[#_playerList+1] = plr.Name end
+    end
+
+    PlrInfoSection:Dropdown({
+        Title = "target", Flag = "ReportTarget",
+        List = _playerList, Default = _playerList[1],
+        Callback = function(v)
+            _targetName = v
+            _nameLabel:Set("player: " .. v)
+        end
+    })
+
+    local function _getEntry(name)
+        local rl = ReplicatedStorage:FindFirstChild("ReportList")
+        if not rl then return nil end
+        local en = rl:FindFirstChild(name)
+        if en then return en end
+        local recent = rl:FindFirstChild("Recent")
+        if recent then en = recent:FindFirstChild(name); if en then return en end end
+        local mw = rl:FindFirstChild("MostWanted")
+        if mw then en = mw:FindFirstChild(name); if en then return en end end
+        return nil
+    end
+
+    -- Try to read HSR from PlayerGui.ReportGui (game's own UI data)
+    local function _getHSRFromReportGui(targetName)
+        local ok, result = pcall(function()
+            local rg = game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("ReportGui")
+            if not rg then return nil end
+            -- Walk the gui tree looking for stats related to targetName
+            local function search(inst, depth)
+                if depth > 8 then return nil end
+                -- Check attributes on this instance
+                for _, attr in ipairs({"HSR","HeadshotRatio","HeadshotPercent","Headshots"}) do
+                    local v = pcall(function() return inst:GetAttribute(attr) end)
+                    if v then
+                        local val = inst:GetAttribute(attr)
+                        if val and (inst.Name == targetName or
+                           (inst:GetAttribute("PlayerName") or "") == targetName) then
+                            return val
+                        end
+                    end
+                end
+                -- Check TextLabels for HSR% text
+                if inst:IsA("TextLabel") or inst:IsA("TextBox") then
+                    local txt = inst.Text or ""
+                    if (txt:lower():find("hsr") or txt:lower():find("headshot"))
+                       and txt:find("%d") then
+                        local pct = txt:match("(%d+%.?%d*)%s*%%")
+                        if pct then return tonumber(pct) end
+                    end
+                end
+                for _, child in ipairs(inst:GetChildren()) do
+                    local r = search(child, depth + 1)
+                    if r then return r end
+                end
+                return nil
+            end
+            return search(rg, 0)
+        end)
+        return ok and result or nil
+    end
+
+    local function _updateStats()
+        pcall(function()
+            local name = _targetName
+            _nameLabel:Set("player: " .. name)
+            local en = _getEntry(name)
+            if en then
+                local flags = en:GetAttribute("TotalFlags") or en:GetAttribute("Flags") or 0
+                local hsr   = en:GetAttribute("HSR") or 0
+                if hsr > 0 and hsr <= 1 then hsr = math.floor(hsr * 100 + 0.5) end
+                -- if HSR still 0, try ReportGui
+                if hsr == 0 then
+                    local guiHsr = _getHSRFromReportGui(name)
+                    if guiHsr then hsr = guiHsr end
+                end
+                _flagsLabel:Set("flags: " .. flags)
+                _hsrLabel:Set("hsr: " .. hsr .. "%")
+            else
+                -- no ReportList entry, try ReportGui directly
+                local guiHsr = _getHSRFromReportGui(name)
+                _flagsLabel:Set("flags: not in ReportList")
+                _hsrLabel:Set("hsr: " .. (guiHsr and (guiHsr .. "%") or "not in ReportList"))
+            end
+            local ps = ReplicatedStorage:FindFirstChild("Players")
+            local pStats = ps and ps:FindFirstChild(name)
+            if pStats then
+                local uac = pStats:FindFirstChild("Status") and pStats.Status:FindFirstChild("UAC")
+                local rptFolder = uac and uac:FindFirstChild("Reports")
+                local rptCount = 0
+                if rptFolder then for _ in pairs(rptFolder:GetAttributes()) do rptCount += 1 end end
+                _rptLabel:Set("reports: " .. rptCount)
+                local ws = pStats:FindFirstChild("Status")
+                       and pStats.Status:FindFirstChild("Journey")
+                       and pStats.Status.Journey:FindFirstChild("WipeStatistics")
+                if ws then
+                    local k = ws:GetAttribute("Kills") or 0
+                    local d = math.max(ws:GetAttribute("Deaths") or 1, 1)
+                    _kdLabel:Set("k/d: "..k.."/"..d.." ("..string.format("%.2f",k/d)..")")
+                else _kdLabel:Set("k/d: -") end
+            else
+                _rptLabel:Set("reports: -")
+                _kdLabel:Set("k/d: -")
+            end
+            local plrObj = game:GetService("Players"):FindFirstChild(name)
+            _ageLabel:Set("age: " .. (plrObj and plrObj.AccountAge.."d" or "-"))
+        end)
+    end
+
+    PlrInfoSection:Button({Title = "refresh stats", Callback = function()
+        task.spawn(_updateStats)
+    end})
+
+    task.spawn(function() task.wait(3); _updateStats() end)
+end
+
 _G.EH_ExpTab    = ExpTab
