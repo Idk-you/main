@@ -980,6 +980,15 @@ end)
 RunService.RenderStepped:Connect(function()
     if CamS.fovOverride and not (CamS.zoomEnabled and UserInputService:IsKeyDown(CamS.zoomKey)) then
         cam.FieldOfView = CamS.fovVal
+        pcall(function()
+            local gs = ReplicatedStorage.Players[player.Name].Settings.GameplaySettings
+            gs:SetAttribute("defaultFOV", CamS.fovVal)
+        end)
+    elseif not CamS.fovOverride then
+        pcall(function()
+            local gs = ReplicatedStorage.Players[player.Name].Settings.GameplaySettings
+            gs:SetAttribute("defaultFOV", CamS.origFov)
+        end)
     end
 
     if CamS.tiltEnabled then
