@@ -22,10 +22,6 @@ ESPCtrl:Toggle({Title = "show box", Flag = "ESPShowBox", Default = false, Callba
         espS.boxMode = s and (Library.Flags["ESPBoxMode"] or "Corner") or "None"
     end
 end})
-ESPCtrl:Dropdown({Title = "box mode", Flag = "ESPBoxMode", List = {"Corner","2D","3D","None"}, Default = "Corner", Callback = function(v)
-    if espS and Library.Flags["ESPShowBox"] then espS.boxMode = v end
-end})
-ESPCtrl:Slider({Title = "box thickness", Flag = "ESPBoxThick", Symbol = "", Default = 3, Min = 1, Max = 10, Decimals = 1})
 
 ESPColors = MainTab:Section("esp colors", "Right")
 ESPColors:Toggle({Title = "box color", Flag = "ESPBoxColorTog", Default = false}):Colorpicker({Color = Color3.fromRGB(255, 155, 205), Flag = "ESPBoxColor"})
@@ -33,6 +29,12 @@ ESPColors:Toggle({Title = "name color", Flag = "ESPNameColorTog", Default = fals
 ESPColors:Toggle({Title = "skeleton color", Flag = "ESPSkelColorTog", Default = false}):Colorpicker({Color = Color3.fromRGB(255, 155, 205), Flag = "ESPSkelColor"})
 ESPColors:Toggle({Title = "tracer color", Flag = "ESPTracColorTog", Default = false}):Colorpicker({Color = Color3.fromRGB(255, 155, 205), Flag = "ESPTracColor"})
 ESPColors:Slider({Title = "font size", Flag = "ESPFontSize", Symbol = "px", Default = 13, Min = 8, Max = 20, Decimals = 1})
+
+local ESPBox = MainTab:Section("box", "Right")
+ESPBox:Dropdown({Title = "box mode", Flag = "ESPBoxMode", List = {"Corner","2D","3D","None"}, Default = "Corner", Callback = function(v)
+    if espS and Library.Flags["ESPShowBox"] then espS.boxMode = v end
+end})
+ESPBox:Slider({Title = "box thickness", Flag = "ESPBoxThick", Symbol = "", Default = 3, Min = 1, Max = 10, Decimals = 1})
 
 ESPHealth = MainTab:Section("health bar", "Right")
 ESPHealth:Dropdown({Title = "position", Flag = "ESPHealthPos", List = {"Left","Right","Top","Bottom"}, Default = "Left"})
