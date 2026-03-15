@@ -20,7 +20,7 @@ AimSection:Slider({Title = "max distance", Flag = "AimDist", Symbol = "m", Defau
 AimSection:Slider({Title = "prediction time", Flag = "AimPredTime", Symbol = "s", Default = 12, Min = 0, Max = 50, Decimals = 1})
 AimSection:Slider({Title = "smoothness", Flag = "AimSmooth", Symbol = "%", Default = 15, Min = 0, Max = 95, Decimals = 1})
 
-WeapSection = RageTab:Section("weapon mods", "Right")
+WeapSection = RageTab:Section("weapon mods", "Left")
 WeapSection:Toggle({Title = "no spread", Flag = "WepNoSpread", Default = false, Callback = function(s)
     ModS.noSpread = s
     if s then
