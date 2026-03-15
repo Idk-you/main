@@ -22,7 +22,7 @@ function cfgList()
     pcall(function()
         cfgEnsure()
         for _, f in ipairs(listfiles(CFG_FOLDER)) do
-            local name = f:gsub(".*/",""):gsub("%.json$","")
+            local name = f:gsub(".*[/\\]",""):gsub("%.json$","")
             if name ~= "" then files[#files+1] = name end
         end
     end)
