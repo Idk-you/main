@@ -1681,7 +1681,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                 local _sAxisY = Tab.SectionAxis[_sAxisIdx]
                 local _sWidth = _isFull and (SecondBorderOutline.Size.X - 14) or ((SecondBorderOutline.Size.X / 2) - 8)
                 local SectionInline = Utility.AddDrawing("Square", {
-                    Position = Vector2.new(AxisX, (_sAxisY == 0 and TabOutline.Position.Y + TabOutline.Size.Y + 6 or 10 + _sAxisY)),
+                    Position = Vector2.new(AxisX, (_sAxisY == 0 and TabOutline.Position.Y + TabOutline.Size.Y + 6 or 18 + _sAxisY)),
                     Size = Vector2.new(_sWidth, 24),
                     Thickness = 1,
                     Color = Library.Theme.Inline,
