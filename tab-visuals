@@ -138,7 +138,7 @@ RunService.Heartbeat:Connect(function(dt)
     end
 end)
 
-local AmbSection = VisTab:Section("ambient", "Right")
+local AmbSection = VisTab:Section("ambient", "Left")
 AmbSection:Toggle({Title = "ambient changer", Flag = "AmbientChanger", Default = false})
 AmbSection:Toggle({Title = "rgb mode", Flag = "AmbientRGB", Default = false})
 AmbSection:Slider({Title = "rgb speed", Flag = "AmbientRGBSpeed", Symbol = "x", Default = 5, Min = 1, Max = 20, Decimals = 1})
