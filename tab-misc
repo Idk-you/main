@@ -99,7 +99,7 @@ MovSection:Toggle({Title = "no fall damage", Flag = "NoFallDmg", Default = false
 MovSection:Toggle({Title = "long jump", Flag = "LongJump", Default = false})
 MovSection:Slider({Title = "long jump power", Flag = "LongJumpPow", Symbol = "", Default = 60, Min = 10, Max = 200, Decimals = 1})
 
-local WorldMiscSection = MiscTab:Section("world", "Right")
+local WorldMiscSection = MiscTab:Section("world", "Left")
 WorldMiscSection:Button({Title = "rejoin server", Callback = function()
     local TeleportService = game:GetService("TeleportService")
     pcall(function()
@@ -146,7 +146,7 @@ WorldMiscSection:Toggle({Title = "cheat detector", Flag = "CheatDetector", Defau
     BrzS._cheaterList  = {}
 end})
 
-local VMChangerSection = MiscTab:Section("viewmodel", "Right")
+local VMChangerSection = MiscTab:Section("viewmodel", "Left")
 VMChangerSection:Toggle({Title = "viewmodel changer", Flag = "ViewmodelChanger", Default = false, Callback = function(s)
     BrzS.viewmodelChanger = s
     task.defer(function()
@@ -178,7 +178,7 @@ VMChangerSection:Slider({Title = "vm transparency", Flag = "ViewmodelTransp", Sy
 end})
 
 
-local SFXSection = MiscTab:Section("screen fx", "Left")
+local SFXSection = MiscTab:Section("screen fx", "Right")
 SFXSection:Toggle({Title = "no visor / flashbang", Flag = "NoVisor", Default = false})
 SFXSection:Button({Title = "no inv background", Callback = function()
     pcall(function()
@@ -223,7 +223,7 @@ SFXSection:Toggle({Title = "no inv blur", Flag = "NoInvBlur", Default = false, C
 end})
 SFXSection:Toggle({Title = "no repair blur", Flag = "NoRepairBlur", Default = false})
 
-local BossSection = MiscTab:Section("boss info", "Left")
+local BossSection = MiscTab:Section("boss info", "Right")
 BossSection:Toggle({Title = "show boss panel", Flag = "ShowBoss", Default = false, Callback = function(s)
     BrzS.showBoss = s
     if s then
@@ -236,7 +236,7 @@ BossSection:Toggle({Title = "show boss panel", Flag = "ShowBoss", Default = fals
 end})
 BossSection:Toggle({Title = "panel movable", Flag = "BossMovable", Default = false})
 
-local DetSection = MiscTab:Section("detectors", "Left")
+local DetSection = MiscTab:Section("detectors", "Right")
 DetSection:Toggle({Title = "mod detector", Flag = "ModDetector", Default = false})
 DetSection:Toggle({Title = "cheat detector", Flag = "CheatDetector", Default = false})
 
