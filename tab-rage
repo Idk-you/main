@@ -8,7 +8,7 @@ RageTab = Window:Tab("rage")
 
 AimSection = RageTab:Section("aimbot", "Left")
 local _togAimEnabled = AimSection:Toggle({Title = "enabled", Flag = "AimEnabled", Default = false})
-_togAimEnabled:Keybind({Title = "hold key", Flag = "AimKey", Key = Enum.UserInputType.MouseButton2, StateType = "Hold", Callback = function(state) _togAimEnabled:Set(state) end})
+_togAimEnabled:Keybind({Title = "hold key", Flag = "AimKey", Key = Enum.UserInputType.MouseButton2, StateType = "Hold", Callback = function(state) if _togAimEnabled.Toggled or not state then _togAimEnabled:Set(state) end end})
 AimSection:Toggle({Title = "velocity prediction", Flag = "AimPred", Default = false})
 AimSection:Toggle({Title = "sticky aim", Flag = "AimSticky", Default = false})
 AimSection:Toggle({Title = "visible only", Flag = "AimVisible", Default = false})
@@ -254,7 +254,7 @@ local AntiAimSection = RageTab:Section("anti aim", "Right")
 local _togAAEnabled = AntiAimSection:Toggle({Title = "enabled", Flag = "AAEnabled", Default = false, Callback = function(s)
     _aaEnable(s)
 end})
-_togAAEnabled:Keybind({Title = "toggle key", Flag = "AAKey", Key = Enum.KeyCode.H, StateType = "Toggle", Callback = function() _togAAEnabled:Set(not _togAAEnabled.Toggled) end})
+_togAAEnabled:Keybind({Title = "toggle key", Flag = "AAKey", Key = Enum.KeyCode.H, StateType = "Toggle", Callback = function() if _togAAEnabled.Toggled then _togAAEnabled:Set(false) end end})
 AntiAimSection:Dropdown({Title = "mode", Flag = "AAMode",
     List = {"yaw180","jitter","pitch","spin","spinflip"}, Default = "yaw180",
     Callback = function(v)
@@ -274,7 +274,7 @@ local UGSection = RageTab:Section("underground resolver", "Right")
 local _togUGEnabled = UGSection:Toggle({Title = "enabled", Flag = "UndergroundEnabled", Default = false, Callback = function(s)
     _ugEnable((_G.EH_PAID_EXECUTOR and s) or false)
 end})
-_togUGEnabled:Keybind({Title = "toggle key", Flag = "UGKey", Key = Enum.KeyCode.U, StateType = "Toggle", Callback = function() _togUGEnabled:Set(not _togUGEnabled.Toggled) end})
+_togUGEnabled:Keybind({Title = "toggle key", Flag = "UGKey", Key = Enum.KeyCode.U, StateType = "Toggle", Callback = function() if _togUGEnabled.Toggled then _togUGEnabled:Set(false) end end})
 UGSection:Slider({Title = "depth", Flag = "UndergroundDepth", Symbol = "st", Default = 25, Min = 5, Max = 60, Decimals = 0, Callback = function(v)
     _UG.depth = v / 10
     BrzS.undergroundDepth = _UG.depth
