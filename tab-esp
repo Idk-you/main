@@ -8,7 +8,7 @@ MainTab = Window:Tab("esp")
 
 ESPCtrl = MainTab:Section("control", "Left")
 local _togESPEnabled = ESPCtrl:Toggle({Title = "enabled", Flag = "ESPEnabled", Default = false})
-_togESPEnabled:Keybind({Title = "esp key", Flag = "ESPKey", Key = Enum.KeyCode.Delete, StateType = "Toggle", Callback = function() if _togESPEnabled.Toggled then _togESPEnabled:Set(false) end end})
+_togESPEnabled:Keybind({Title = "esp key", Flag = "ESPKey", Key = Enum.KeyCode.Delete, StateType = "Always", Callback = function() end})
 ESPCtrl:Toggle({Title = "show names", Flag = "ESPNames", Default = false})
 ESPCtrl:Toggle({Title = "show distance", Flag = "ESPDist", Default = false})
 ESPCtrl:Toggle({Title = "show health", Flag = "ESPHealth", Default = false})
@@ -17,8 +17,14 @@ ESPCtrl:Toggle({Title = "npc esp", Flag = "ESPNpc", Default = false})
 ESPCtrl:Toggle({Title = "team check", Flag = "ESPTeam", Default = false})
 ESPCtrl:Toggle({Title = "visible check color", Flag = "ESPVisCheck", Default = false})
 ESPCtrl:Slider({Title = "render distance", Flag = "ESPRenderDist", Symbol = "m", Default = 1000, Min = 100, Max = 5000, Decimals = 1})
-ESPCtrl:Toggle({Title = "show box", Flag = "ESPShowBox", Default = false})
-ESPCtrl:Dropdown({Title = "box mode", Flag = "ESPBoxMode", List = {"Corner","2D","3D","None"}, Default = "None"})
+ESPCtrl:Toggle({Title = "show box", Flag = "ESPShowBox", Default = false, Callback = function(s)
+    if espS then
+        espS.boxMode = s and (Library.Flags["ESPBoxMode"] or "Corner") or "None"
+    end
+end})
+ESPCtrl:Dropdown({Title = "box mode", Flag = "ESPBoxMode", List = {"Corner","2D","3D","None"}, Default = "Corner", Callback = function(v)
+    if espS and Library.Flags["ESPShowBox"] then espS.boxMode = v end
+end})
 ESPCtrl:Slider({Title = "box thickness", Flag = "ESPBoxThick", Symbol = "", Default = 3, Min = 1, Max = 10, Decimals = 1})
 
 ESPColors = MainTab:Section("esp colors", "Right")
@@ -33,20 +39,20 @@ ESPHealth:Dropdown({Title = "position", Flag = "ESPHealthPos", List = {"Left","R
 ESPHealth:Dropdown({Title = "gradient", Flag = "ESPHealthGrad", List = {"GreenRed","RedGreen","StaticGreen","StaticRed"}, Default = "GreenRed"})
 ESPHealth:Slider({Title = "bar width", Flag = "ESPHealthWidth", Symbol = "px", Default = 4, Min = 2, Max = 10, Decimals = 1})
 
-ESPSkeleton = MainTab:Section("skeleton", "Left")
+ESPSkeleton = MainTab:Section("skeleton", "Right")
 ESPSkeleton:Toggle({Title = "show skeleton", Flag = "ESPSkeleton", Default = false})
 ESPSkeleton:Slider({Title = "line thickness", Flag = "ESPSkelThick", Symbol = "", Default = 2, Min = 1, Max = 10, Decimals = 1})
 
 ESPTracers = MainTab:Section("tracers", "Left")
 local _togESPTracers = ESPTracers:Toggle({Title = "show tracers", Flag = "ESPTracers", Default = false})
-_togESPTracers:Keybind({Title = "tracers key", Flag = "ESPTracersKey", Key = Enum.KeyCode.End, StateType = "Toggle", Callback = function() if _togESPTracers.Toggled then _togESPTracers:Set(false) end end})
+_togESPTracers:Keybind({Title = "tracers key", Flag = "ESPTracersKey", Key = Enum.KeyCode.End, StateType = "Always", Callback = function() end})
 ESPTracers:Dropdown({Title = "origin", Flag = "ESPTracOrigin", List = {"Bottom","Center","Top","Mouse"}, Default = "Bottom"})
 ESPTracers:Slider({Title = "thickness", Flag = "ESPTracThick", Symbol = "", Default = 2, Min = 1, Max = 10, Decimals = 1})
 ESPTracers:Slider({Title = "transparency", Flag = "ESPTracTransp", Symbol = "", Default = 3, Min = 0, Max = 10, Decimals = 1})
 
 ESPChams = MainTab:Section("chams", "Left")
 local _togESPChams = ESPChams:Toggle({Title = "enable chams", Flag = "ESPChams", Default = false})
-_togESPChams:Keybind({Title = "chams key", Flag = "ESPChamsKey", Key = Enum.KeyCode.Home, StateType = "Toggle", Callback = function() if _togESPChams.Toggled then _togESPChams:Set(false) end end})
+_togESPChams:Keybind({Title = "chams key", Flag = "ESPChamsKey", Key = Enum.KeyCode.Home, StateType = "Always", Callback = function() end})
 ESPChams:Slider({Title = "transparency", Flag = "ESPChamsTransp", Symbol = "", Default = 5, Min = 0, Max = 10, Decimals = 1})
 ESPChams:Toggle({Title = "chams fill", Flag = "ESPChamsFillTog", Default = false}):Colorpicker({Color = Color3.fromRGB(170, 90, 255), Flag = "ESPChamsFill"})
 ESPChams:Toggle({Title = "chams outline", Flag = "ESPChamsOutTog", Default = false}):Colorpicker({Color = Color3.fromRGB(255, 155, 205), Flag = "ESPChamsOut"})
