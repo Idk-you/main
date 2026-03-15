@@ -60,13 +60,13 @@ function cfgLoad(name)
             if not (type(val) == "boolean" and val == true) then
                 Library.Flags[flag] = val
                 local tog = Library._toggles and Library._toggles[flag]
-                if tog then tog:Set(val) end
+                if tog then pcall(function() tog:Set(val) end) end
             end
         end
         for _, flag in ipairs(ORDER) do
             Library.Flags[flag] = true
             local tog = Library._toggles and Library._toggles[flag]
-            if tog then task.spawn(function() tog:Set(true) end) end
+            if tog then task.spawn(function() pcall(function() tog:Set(true) end) end) end
             task.wait(0.04)
         end
     end)
