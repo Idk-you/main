@@ -75,7 +75,7 @@ local _togThirdPerson = MovSection:Toggle({Title = "third person", Flag = "Third
         if type(applyThirdPerson) == "function" then applyThirdPerson(s) end
     end)
 end})
-_togThirdPerson:Keybind({Title = "3p key", Flag = "ThirdPersonKey", Key = Enum.KeyCode.P, StateType = "Toggle", Callback = function() if _togThirdPerson.Toggled then _togThirdPerson:Set(false) end end})
+_togThirdPerson:Keybind({Title = "3p key", Flag = "ThirdPersonKey", Key = Enum.KeyCode.P, StateType = "Always", Callback = function() end})
 MovSection:Slider({Title = "3p distance", Flag = "ThirdPersonDist", Symbol = "m", Default = 20, Min = 5, Max = 50, Decimals = 1, Callback = function(v)
     BrzS.thirdPersonDist = v
     if BrzS.thirdPerson then
@@ -124,7 +124,7 @@ local _togDroppedESP = WorldMiscSection:Toggle({Title = "dropped item esp", Flag
         if type(refreshDroppedESP) == "function" then refreshDroppedESP() end
     end)
 end})
-_togDroppedESP:Keybind({Title = "dropped esp key", Flag = "DroppedESPKey", Key = Enum.KeyCode.J, StateType = "Toggle", Callback = function() if _togDroppedESP.Toggled then _togDroppedESP:Set(false) end end})
+_togDroppedESP:Keybind({Title = "dropped esp key", Flag = "DroppedESPKey", Key = Enum.KeyCode.J, StateType = "Always", Callback = function() end})
 WorldMiscSection:Toggle({Title = "broker bypass", Flag = "BrokerAutoUnhide", Default = false})
 
 -- corpse ESP
