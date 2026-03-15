@@ -5035,6 +5035,8 @@ espS = {
     skeletonThickness = 1.2,
 
     showTracers = false,
+    showHSR = false,
+    showReports = false,
     tracerOrigin = "Bottom",
     tracerThickness = 1.0,
     tracerTransparency = 0.25,
@@ -5509,13 +5511,15 @@ createESPEntry = function(color)
         weapTxt = newTxt(Color3.fromRGB(255, 200, 80), espS.fontSize - 2),
         skelLines = sk,
         tracer = newLine(color, espS.tracerThickness),
+        hsrTxt = newTxt(Color3.fromRGB(255, 220, 80), espS.fontSize - 1),
+        reportTxt = newTxt(Color3.fromRGB(255, 100, 100), espS.fontSize - 1),
         highlight = nil
     }
 end
 
 removeESPEntry = function(d)
     if not d then return end
-    local objects = {"box2d", "boxFill", "hpBg", "hpFg", "hpBgTop", "hpFgTop", "nameTxt", "distTxt", "weapTxt", "tracer"}
+    local objects = {"box2d", "boxFill", "hpBg", "hpFg", "hpBgTop", "hpFgTop", "nameTxt", "distTxt", "weapTxt", "tracer", "hsrTxt", "reportTxt"}
     for _, k in ipairs(objects) do
         pcall(function() if d[k] then d[k]:Remove() end end)
     end
@@ -5537,6 +5541,8 @@ hideESPEntry = function(d)
     d.distTxt.Visible = false
     d.weapTxt.Visible = false
     d.tracer.Visible = false
+    if d.hsrTxt then d.hsrTxt.Visible = false end
+    if d.reportTxt then d.reportTxt.Visible = false end
 
     for _, l in ipairs(d.corners) do l.Visible = false end
     for _, l in ipairs(d.lines3d) do l.Visible = false end
@@ -5795,6 +5801,52 @@ drawESPEntry = function(d, char, color, myHRP)
         end
     else
         d.weapTxt.Visible = false
+    end
+
+    -- HSR display
+    if espS.showHSR and d.hsrTxt then
+        pcall(function()
+            local p = game:GetService("ReplicatedStorage").Players:FindFirstChild(char.Name)
+            if p then
+                local combat = p.Status.GameplayVariables.Combat
+                local hs = combat:GetAttribute("Headshots") or 0
+                local bs = combat:GetAttribute("Bodyshots") or 0
+                local total = hs + bs
+                local hsr = total > 0 and math.ceil((hs/total)*100) or 0
+                d.hsrTxt.Text = "HSR: " .. hsr .. "%"
+                d.hsrTxt.Color = hsr >= 70 and Color3.fromRGB(255, 80, 80)
+                              or hsr >= 40 and Color3.fromRGB(255, 200, 80)
+                              or Color3.fromRGB(80, 220, 120)
+                d.hsrTxt.Position = Vector2.new(centerX, bottom + 16)
+                d.hsrTxt.Visible = true
+            else
+                d.hsrTxt.Visible = false
+            end
+        end)
+    elseif d.hsrTxt then
+        d.hsrTxt.Visible = false
+    end
+
+    -- Reports display
+    if espS.showReports and d.reportTxt then
+        pcall(function()
+            local p = game:GetService("ReplicatedStorage").Players:FindFirstChild(char.Name)
+            if p then
+                local uac = p.Status:FindFirstChild("UAC")
+                local rptFolder = uac and uac:FindFirstChild("Reports")
+                local count = 0
+                if rptFolder then for _ in pairs(rptFolder:GetAttributes()) do count += 1 end end
+                d.reportTxt.Text = "Reports: " .. count
+                d.reportTxt.Color = count >= 3 and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(200, 200, 200)
+                local yOff = espS.showHSR and 28 or 16
+                d.reportTxt.Position = Vector2.new(centerX, bottom + yOff)
+                d.reportTxt.Visible = true
+            else
+                d.reportTxt.Visible = false
+            end
+        end)
+    elseif d.reportTxt then
+        d.reportTxt.Visible = false
     end
 
     for i = 1, #d.skelLines do
@@ -6439,7 +6491,7 @@ end)
 LoadTime = tick()
 
 local Loader = Library.CreateLoader("Exchange.hook", Vector2.new(300, 300))
-Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 900))
+Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(700, 900))
 Window.Watermark("Exchange.hook | v1.3.2 | https://discord.gg/33V5ccwAEv")
 _G.EH_Window  = Window
 _G.EH_Library = Library
