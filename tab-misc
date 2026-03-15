@@ -196,7 +196,7 @@ SFXSection:Button({Title = "no inv background", Callback = function()
             if obj:IsA("ImageLabel") and obj.Name == "Decor" then obj.ImageTransparency = 1 end
         end
     end)
-    Library:Notify("inventory background removed")
+    Window.SendNotification("Normal", "inventory background removed", 3)
 end})
 SFXSection:Toggle({Title = "no inv blur", Flag = "NoInvBlur", Default = false, Callback = function(s)
     BrzS.noInvBlur = s
