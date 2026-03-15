@@ -3694,6 +3694,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                     })
 
                     function Dropdown:Set(Selected)
+                        if not Dropdown.ListRender.Texts[Selected] then return end
                         for Index, Value in pairs(Dropdown.ListRender.Texts) do
                             Value.Color = Library.Theme.Text
                         end
