@@ -147,7 +147,7 @@ end
 
 
 
-local PlrInfoSection = ExpTab:Section("player reports", "Right")
+local PlrInfoSection = ExpTab:Section("player reports", "Left")
 
 do
     local _nameLabel  = PlrInfoSection:Label("player: " .. player.Name)
@@ -184,41 +184,18 @@ do
         return nil
     end
 
-    -- Try to read HSR from PlayerGui.ReportGui (game's own UI data)
-    local function _getHSRFromReportGui(targetName)
+    -- Read HSR directly from RS.Players combat stats (same formula as ReportInteractionManager)
+    local function _getHSR(targetName)
         local ok, result = pcall(function()
-            local rg = game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("ReportGui")
-            if not rg then return nil end
-            -- Walk the gui tree looking for stats related to targetName
-            local function search(inst, depth)
-                if depth > 8 then return nil end
-                -- Check attributes on this instance
-                for _, attr in ipairs({"HSR","HeadshotRatio","HeadshotPercent","Headshots"}) do
-                    local v = pcall(function() return inst:GetAttribute(attr) end)
-                    if v then
-                        local val = inst:GetAttribute(attr)
-                        if val and (inst.Name == targetName or
-                           (inst:GetAttribute("PlayerName") or "") == targetName) then
-                            return val
-                        end
-                    end
-                end
-                -- Check TextLabels for HSR% text
-                if inst:IsA("TextLabel") or inst:IsA("TextBox") then
-                    local txt = inst.Text or ""
-                    if (txt:lower():find("hsr") or txt:lower():find("headshot"))
-                       and txt:find("%d") then
-                        local pct = txt:match("(%d+%.?%d*)%s*%%")
-                        if pct then return tonumber(pct) end
-                    end
-                end
-                for _, child in ipairs(inst:GetChildren()) do
-                    local r = search(child, depth + 1)
-                    if r then return r end
-                end
-                return nil
-            end
-            return search(rg, 0)
+            local p = ReplicatedStorage.Players:FindFirstChild(targetName)
+            if not p then return nil end
+            local combat = p.Status.GameplayVariables.Combat
+            local headshots = combat:GetAttribute("Headshots") or 0
+            local bodyshots = combat:GetAttribute("Bodyshots") or 0
+            local total = headshots + bodyshots
+            if total == 0 then return 0 end
+            local hsr = headshots / total
+            return math.ceil(hsr * 100)
         end)
         return ok and result or nil
     end
@@ -234,14 +211,14 @@ do
                 if hsr > 0 and hsr <= 1 then hsr = math.floor(hsr * 100 + 0.5) end
                 -- if HSR still 0, try ReportGui
                 if hsr == 0 then
-                    local guiHsr = _getHSRFromReportGui(name)
+                    local guiHsr = _getHSR(name)
                     if guiHsr then hsr = guiHsr end
                 end
                 _flagsLabel:Set("flags: " .. flags)
                 _hsrLabel:Set("hsr: " .. hsr .. "%")
             else
                 -- no ReportList entry, try ReportGui directly
-                local guiHsr = _getHSRFromReportGui(name)
+                local guiHsr = _getHSR(name)
                 _flagsLabel:Set("flags: not in ReportList")
                 _hsrLabel:Set("hsr: " .. (guiHsr and (guiHsr .. "%") or "not in ReportList"))
             end
