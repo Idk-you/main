@@ -487,8 +487,8 @@ Library = {
         DarkContrast = Color3.fromHex("#191919"),
         Text = Color3.fromHex("#e8e8e8"),
         TextInactive = Color3.fromHex("#aaaaaa"),
-        Font = Drawing.Fonts.Monospace,
-        TextSize = 13,
+        Font = Drawing.Fonts.UI,
+        TextSize = 17,
         UseOutline = false
     },
     Icons = {},
@@ -1761,7 +1761,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
 
                     local ToggleInline = Utility.AddDrawing("Square", {
                         Position = Vector2.new(SectionInline.Position.X + 8, SectionInline.Position.Y + 23 + Toggle.Axis),
-                        Size = Vector2.new(13, 13),
+                        Size = Vector2.new(15, 15),
                         Thickness = 1,
                         Color = Library.Theme.Inline,
                         Visible = true,
@@ -1848,7 +1848,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                         end
                     end)
 
-                    Section.ContentAxis = Section.ContentAxis + ToggleOutline.Size.Y + 8
+                    Section.ContentAxis = Section.ContentAxis + ToggleOutline.Size.Y + 11
                     Tab.SectionAxis = {
                         Side == "Left" and Tab.SectionAxis[1] + ToggleOutline.Size.Y + 8 or Tab.SectionAxis[1],
                         Side == "Right" and Tab.SectionAxis[2] + ToggleOutline.Size.Y + 8 or Tab.SectionAxis[2]
@@ -2958,7 +2958,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                         end
                     end)
 
-                    Section.ContentAxis = Section.ContentAxis + SliderOutline.Size.Y + 24
+                    Section.ContentAxis = Section.ContentAxis + SliderOutline.Size.Y + 28
                     Tab.SectionAxis = {
                         Side == "Left" and Tab.SectionAxis[1] + SliderOutline.Size.Y + 24 or Tab.SectionAxis[1],
                         Side == "Right" and Tab.SectionAxis[2] + SliderOutline.Size.Y + 24 or Tab.SectionAxis[2]
@@ -6438,7 +6438,7 @@ end)
 LoadTime = tick()
 
 local Loader = Library.CreateLoader("Exchange.hook", Vector2.new(300, 300))
-Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 760))
+Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(720, 900))
 Window.Watermark("Exchange.hook | v1.3.2 | https://discord.gg/33V5ccwAEv")
 _G.EH_Window  = Window
 _G.EH_Library = Library
