@@ -5,6 +5,7 @@ if not _AA then _AA = {} end
 if not _UG then _UG = {} end
 
 local MiscTab = Window:Tab("misc")
+_G.EH_MiscTab = MiscTab -- set immediately so init.lua doesn't get nil
 
 -- ─── mine detonator setup (must be before the UI button below) ────────────
 local _MineS = {
