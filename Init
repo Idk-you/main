@@ -1420,29 +1420,28 @@ local function _runCheatDetector(p)
         local kills  = wipe:GetAttribute("Kills") or 0
         local kdr    = math.floor(kills / deaths * 10) / 10
 
-        -- Check ReportList flags
-        local reportEntry = (game.ReplicatedStorage:FindFirstChild("ReportList")
-            and (game.ReplicatedStorage.ReportList:FindFirstChild("MostWanted")
-                 and game.ReplicatedStorage.ReportList.MostWanted:FindFirstChild(p.Name)))
-            or (game.ReplicatedStorage.ReportList:FindFirstChild("Recent")
-                and game.ReplicatedStorage.ReportList.Recent:FindFirstChild(p.Name))
+        -- Live HSR from Combat attributes (same as game's own ReportInteractionManager)
+        local combat    = rsPlayer.Status.GameplayVariables.Combat
+        local hs        = combat:GetAttribute("Headshots") or 0
+        local bs        = combat:GetAttribute("Bodyshots") or 0
+        local total     = hs + bs
+        local hsr       = total > 0 and math.ceil((hs / total) * 100) or 0
 
-        if reportEntry then
-            local totalFlags = reportEntry:GetAttribute("TotalFlags") or 0
-            local hsr        = reportEntry:GetAttribute("HSR") or 0
-            local age        = reportEntry:GetAttribute("Age") or 999
-            if kills >= 15 and hsr >= 95 then
-                BrzS._cheaterList[p.Name] = true
-                EH_Notify("[CHEAT] " .. p.Name .. " HSR suspect KDR:" .. kdr, 8)
-            end
-            if totalFlags >= 75 and age <= 50 then
-                BrzS._cheaterList[p.Name] = true
-                EH_Notify("[CHEAT] " .. p.Name .. " flags suspect KDR:" .. kdr, 8)
-            end
-        end
-        if kills >= 15 and kdr >= 5 then
+        -- Report count from UAC
+        local uac = rsPlayer.Status:FindFirstChild("UAC")
+        local rptFolder = uac and uac:FindFirstChild("Reports")
+        local reportCount = 0
+        if rptFolder then for _ in pairs(rptFolder:GetAttributes()) do reportCount += 1 end end
+
+        if kills >= 15 and hsr >= 80 then
             BrzS._cheaterList[p.Name] = true
-            EH_Notify("[CHEAT] " .. p.Name .. " KDR:" .. kdr, 8)
+            EH_Notify("[CHEAT] " .. p.Name .. " HSR:" .. hsr .. "% KDR:" .. kdr .. " (aimbot)", 8)
+        elseif kills > 0 and kdr >= 15 then
+            BrzS._cheaterList[p.Name] = true
+            EH_Notify("[CHEAT] " .. p.Name .. " KDR:" .. kdr .. " HSR:" .. hsr .. "%", 8)
+        elseif reportCount >= 5 and hsr >= 60 then
+            BrzS._cheaterList[p.Name] = true
+            EH_Notify("[CHEAT] " .. p.Name .. " " .. reportCount .. " rpts HSR:" .. hsr .. "%", 8)
         end
     end)
 end
