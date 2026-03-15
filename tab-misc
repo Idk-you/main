@@ -258,16 +258,17 @@ end})
 VMSection:Slider({Title = "pos  z  (forward / back)", Flag = "VMOffZ", Symbol = "", Default = 0, Min = -200, Max = 200, Decimals = 1, Callback = function(v)
     BrzS.vmOffsetZ = v / 100
 end})
-VMSection:Slider({Title = "rot  x  (pitch)", Flag = "VMRotX", Symbol = "deg", Default = 0, Min = -4500, Max = 4500, Decimals = 1, Callback = function(v)
+local VMRotSection = MiscTab:Section("viewmodel rotation", "Right")
+VMRotSection:Slider({Title = "rot  x  (pitch)", Flag = "VMRotX", Symbol = "deg", Default = 0, Min = -4500, Max = 4500, Decimals = 1, Callback = function(v)
     BrzS.vmRotX = v / 100
 end})
-VMSection:Slider({Title = "rot  y  (yaw)", Flag = "VMRotY", Symbol = "deg", Default = 0, Min = -4500, Max = 4500, Decimals = 1, Callback = function(v)
+VMRotSection:Slider({Title = "rot  y  (yaw)", Flag = "VMRotY", Symbol = "deg", Default = 0, Min = -4500, Max = 4500, Decimals = 1, Callback = function(v)
     BrzS.vmRotY = v / 100
 end})
-VMSection:Slider({Title = "rot  z  (roll)", Flag = "VMRotZ", Symbol = "deg", Default = 0, Min = -4500, Max = 4500, Decimals = 1, Callback = function(v)
+VMRotSection:Slider({Title = "rot  z  (roll)", Flag = "VMRotZ", Symbol = "deg", Default = 0, Min = -4500, Max = 4500, Decimals = 1, Callback = function(v)
     BrzS.vmRotZ = v / 100
 end})
-VMSection:Button({Title = "reset offsets", Callback = function()
+VMRotSection:Button({Title = "reset offsets", Callback = function()
     Library.Flags["VMOffX"]  = 0; Library.Flags["VMOffY"]  = 0; Library.Flags["VMOffZ"]  = 0
     Library.Flags["VMRotX"]  = 0; Library.Flags["VMRotY"]  = 0; Library.Flags["VMRotZ"]  = 0
     BrzS.vmOffsetX = 0; BrzS.vmOffsetY = 0; BrzS.vmOffsetZ = 0
