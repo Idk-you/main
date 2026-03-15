@@ -16,6 +16,12 @@ ESPCtrl:Toggle({Title = "show weapon", Flag = "ESPWeapon", Default = false})
 ESPCtrl:Toggle({Title = "npc esp", Flag = "ESPNpc", Default = false})
 ESPCtrl:Toggle({Title = "team check", Flag = "ESPTeam", Default = false})
 ESPCtrl:Toggle({Title = "visible check color", Flag = "ESPVisCheck", Default = false})
+ESPCtrl:Toggle({Title = "show hsr%", Flag = "ESPShowHSR", Default = false, Callback = function(s)
+    if espS then espS.showHSR = s end
+end})
+ESPCtrl:Toggle({Title = "show reports", Flag = "ESPShowReports", Default = false, Callback = function(s)
+    if espS then espS.showReports = s end
+end})
 ESPCtrl:Slider({Title = "render distance", Flag = "ESPRenderDist", Symbol = "m", Default = 1000, Min = 100, Max = 5000, Decimals = 1})
 ESPCtrl:Toggle({Title = "show box", Flag = "ESPShowBox", Default = false, Callback = function(s)
     if espS then
