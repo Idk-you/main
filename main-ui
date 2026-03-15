@@ -1128,7 +1128,7 @@ do
 
         do
             local WindowOutline = Utility.AddDrawing("Square", {
-                Size = _G.EH_PAID_EXECUTOR and Vector2.new(260, 42) or Vector2.new(175, 28),
+                Size = Vector2.new(180, 30),
                 Thickness = 1,
                 Color = Library.Theme.Outline,
                 Visible = true,
@@ -1175,7 +1175,7 @@ do
 
             local WindowText = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
-                Size = _G.EH_PAID_EXECUTOR and 30 or 18,
+                Size = 20,
                 Color = Library.Theme.Text,
                 Text = "Keybinds",
                 Position = Vector2.new(WindowOutlineBorder.Position.X + (WindowOutlineBorder.Size.X / 2), WindowOutlineBorder.Position.Y + 2),
@@ -1186,7 +1186,7 @@ do
 
             local CurrentBinds = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
-                Size = _G.EH_PAID_EXECUTOR and 30 or 18,
+                Size = 20,
                 Color = Library.Theme.Text,
                 Text = "",
                 Position = Vector2.new(WindowOutlineBorder.Position.X + (WindowOutlineBorder.Size.X / 2), WindowOutlineBorder.Position.Y + 10),
@@ -1201,8 +1201,8 @@ do
                 if cur == _kbLastBind then return end
                 _kbLastBind = cur
                 CurrentBinds.Text = cur
-                local _kbMin = _G.EH_PAID_EXECUTOR and 260 or 175
-local _kbH   = _G.EH_PAID_EXECUTOR and 42 or 28
+                local _kbMin = 180
+local _kbH   = 30
 local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _kbMin and CurrentBinds.TextBounds.X + 10 or _kbMin, _kbH + CurrentBinds.TextBounds.Y - 6) or Vector2.new(_kbMin, _kbH)
                 WindowOutline.Size = CalcuationSize
                 WindowOutlineBorder.Size = Vector2.new(WindowOutline.Size.X - 2, WindowOutline.Size.Y - 2)
@@ -1760,8 +1760,8 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                     Library.Flags[Options.Flag] = false
 
                     local ToggleInline = Utility.AddDrawing("Square", {
-                        Position = Vector2.new(SectionInline.Position.X + 8, SectionInline.Position.Y + (_G.EH_PAID_EXECUTOR and 36 or 23) + Toggle.Axis),
-                        Size = Vector2.new(_G.EH_PAID_EXECUTOR and 24 or 13, _G.EH_PAID_EXECUTOR and 24 or 13),
+                        Position = Vector2.new(SectionInline.Position.X + 8, SectionInline.Position.Y + 23 + Toggle.Axis),
+                        Size = Vector2.new(13, 13),
                         Thickness = 1,
                         Color = Library.Theme.Inline,
                         Visible = true,
@@ -1797,7 +1797,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
 
                     local ToggleTitle = Utility.AddDrawing("Text", {
                         Text = Options.Title,
-                        Position = Vector2.new(ToggleInline.Position.X + ToggleInline.Size.X + 8, ToggleInline.Position.Y + (_G.EH_PAID_EXECUTOR and 2 or 0)),
+                        Position = Vector2.new(ToggleInline.Position.X + ToggleInline.Size.X + 8, ToggleInline.Position.Y),
                         Center = false,
                         Outline = false,
                         Font = Library.Theme.Font,
@@ -1848,7 +1848,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                         end
                     end)
 
-                    Section.ContentAxis = Section.ContentAxis + ToggleOutline.Size.Y + (_G.EH_PAID_EXECUTOR and 18 or 8)
+                    Section.ContentAxis = Section.ContentAxis + ToggleOutline.Size.Y + 8
                     Tab.SectionAxis = {
                         Side == "Left" and Tab.SectionAxis[1] + ToggleOutline.Size.Y + 8 or Tab.SectionAxis[1],
                         Side == "Right" and Tab.SectionAxis[2] + ToggleOutline.Size.Y + 8 or Tab.SectionAxis[2]
@@ -2790,7 +2790,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                     end
 
                     local SliderInline = Utility.AddDrawing("Square", {
-                        Position = Vector2.new(SectionInline.Position.X + 8, SectionInline.Position.Y + (_G.EH_PAID_EXECUTOR and 36 or 23) + Slider.Axis + (_G.EH_PAID_EXECUTOR and 26 or 15)),
+                        Position = Vector2.new(SectionInline.Position.X + 8, SectionInline.Position.Y + 23 + Slider.Axis + 15),
                         Size = Vector2.new(SectionOutline.Size.X - 12, 13),
                         Thickness = 1,
                         Color = Library.Theme.Inline,
@@ -2958,7 +2958,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                         end
                     end)
 
-                    Section.ContentAxis = Section.ContentAxis + SliderOutline.Size.Y + (_G.EH_PAID_EXECUTOR and 38 or 24)
+                    Section.ContentAxis = Section.ContentAxis + SliderOutline.Size.Y + 24
                     Tab.SectionAxis = {
                         Side == "Left" and Tab.SectionAxis[1] + SliderOutline.Size.Y + 24 or Tab.SectionAxis[1],
                         Side == "Right" and Tab.SectionAxis[2] + SliderOutline.Size.Y + 24 or Tab.SectionAxis[2]
@@ -3061,7 +3061,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                         end
                     end)
 
-                    Section.ContentAxis = Section.ContentAxis + ButtonOutline.Size.Y + (_G.EH_PAID_EXECUTOR and 14 or 6)
+                    Section.ContentAxis = Section.ContentAxis + ButtonOutline.Size.Y + 6
                     Tab.SectionAxis = {
                         Side == "Left" and Tab.SectionAxis[1] + ButtonOutline.Size.Y + 6 or Tab.SectionAxis[1],
                         Side == "Right" and Tab.SectionAxis[2] + ButtonOutline.Size.Y + 6 or Tab.SectionAxis[2]
@@ -3624,7 +3624,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                     Library.Flags[Options.Flag] = Dropdown.Selected
 
                     local DropdownInline = Utility.AddDrawing("Square", {
-                        Position = Vector2.new(SectionInline.Position.X + 8, SectionInline.Position.Y + (_G.EH_PAID_EXECUTOR and 36 or 23) + Dropdown.Axis + (_G.EH_PAID_EXECUTOR and 28 or 16)),
+                        Position = Vector2.new(SectionInline.Position.X + 8, SectionInline.Position.Y + 23 + Dropdown.Axis + 16),
                         Size = Vector2.new(SectionOutline.Size.X - 12, Dropdown.BaseSize),
                         Thickness = 1,
                         Color = Library.Theme.Inline,
@@ -3849,7 +3849,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                         end
                     end)
 
-                    Section.ContentAxis = Section.ContentAxis + DropdownOutline.Size.Y + (_G.EH_PAID_EXECUTOR and 36 or 20)
+                    Section.ContentAxis = Section.ContentAxis + DropdownOutline.Size.Y + 20
                     Tab.SectionAxis = {
                         Side == "Left" and Tab.SectionAxis[1] + DropdownOutline.Size.Y + 20 or Tab.SectionAxis[1],
                         Side == "Right" and Tab.SectionAxis[2] + DropdownOutline.Size.Y + 20 or Tab.SectionAxis[2]
@@ -3888,7 +3888,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                         LabelTitle.Text = Txt
                     end
 
-                    Section.ContentAxis = Section.ContentAxis + LabelTitle.Size + (_G.EH_PAID_EXECUTOR and 18 or 8)
+                    Section.ContentAxis = Section.ContentAxis + LabelTitle.Size + 8
                     Tab.SectionAxis = {
                         Side == "Left" and Tab.SectionAxis[1] +  LabelTitle.Size + 8 or Tab.SectionAxis[1],
                         Side == "Right" and Tab.SectionAxis[2] +  LabelTitle.Size + 8 or Tab.SectionAxis[2]
@@ -4653,7 +4653,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
             }, Library.Watermark)
 
             local WatermarkIcon = Utility.AddDrawing("Image", {
-                Size = Vector2.new(_G.EH_PAID_EXECUTOR and 32 or 22, _G.EH_PAID_EXECUTOR and 40 or 26),
+                Size = Vector2.new(22, 26),
                 Position = Vector2.new(WindowOutline.Position.X + 2, WindowOutline.Position.Y + 2),
                 Transparency = 1,
                 ZIndex = 3,
@@ -4706,10 +4706,10 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
 
             local WindowTitle = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
-                Size = _G.EH_PAID_EXECUTOR and 30 or 18,
+                Size = 20,
                 Color = Library.Theme.Text,
                 Text = Watermark.Title .. " | " .. ("%s, %s, %s"):format(os.date("%B"), os.date("%d"), os.date("%Y")),
-                Position = Vector2.new(WindowFrame.Position.X + (WindowFrame.Size.X / 2), WindowOutlineBorder.Position.Y + (_G.EH_PAID_EXECUTOR and 6 or 4)),
+                Position = Vector2.new(WindowFrame.Position.X + (WindowFrame.Size.X / 2), WindowOutlineBorder.Position.Y + 5),
                 Visible = true,
                 Center = false,
                 Outline = false
@@ -4717,15 +4717,15 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
 
             -- wait a frame so TextBounds is populated with correct font size
             task.defer(function()
-                WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + (_G.EH_PAID_EXECUTOR and 44 or 30), _G.EH_PAID_EXECUTOR and 42 or 28)
+                WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + (30), 30)
                 WindowTopline.Size = Vector2.new(WindowOutline.Size.X - 2, 2)
                 WindowFrame.Size = Vector2.new(WindowOutline.Size.X - 2, WindowOutline.Size.Y - 2)
                 WindowImage.Size = WindowFrame.Size
                 -- re-center text vertically in final bar
-                local barH = _G.EH_PAID_EXECUTOR and 42 or 28
-                local fontSize = _G.EH_PAID_EXECUTOR and 30 or 18
+                local barH = 30
+                local fontSize = 20
                 local yOffset = math.floor((barH - fontSize) / 2)
-                WindowTitle.Position = Vector2.new(WindowOutline.Position.X + (_G.EH_PAID_EXECUTOR and 32 or 24), WindowOutline.Position.Y + yOffset)
+                WindowTitle.Position = Vector2.new(WindowOutline.Position.X + 24, WindowOutline.Position.Y + yOffset)
             end)
 
             Utility.AddDrag(WindowOutline, Library.Watermark)
@@ -4748,12 +4748,12 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                     if newTxt ~= _wmLast then
                         WindowTitle.Text = newTxt
                         _wmLast = newTxt
-                        WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + (_G.EH_PAID_EXECUTOR and 46 or 34), _G.EH_PAID_EXECUTOR and 42 or 28)
+                        WindowOutline.Size = Vector2.new(WindowTitle.TextBounds.X + (34), 30)
                         WindowOutlineBorder.Size = WindowOutline.Size
                         WindowTopline.Size = Vector2.new(WindowOutline.Size.X - 2, 1)
                         WindowFrame.Size = Vector2.new(WindowOutline.Size.X - 2, WindowOutline.Size.Y - 2)
                         WindowImage.Size = WindowFrame.Size
-                        WindowTitle.Position = Vector2.new(WindowTopline.Position.X + 22, WindowTopline.Position.Y + (_G.EH_PAID_EXECUTOR and 6 or 4))
+                        WindowTitle.Position = Vector2.new(WindowTopline.Position.X + 22, WindowTopline.Position.Y + 5)
                     end
                     WindowOutline.Visible = true; WindowImage.Visible = true
                     WindowFrame.Visible = true; WindowTitle.Visible = true
@@ -6446,7 +6446,7 @@ end)
 LoadTime = tick()
 
 local Loader = Library.CreateLoader("Exchange.hook", Vector2.new(300, 300))
-Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(_G.EH_PAID_EXECUTOR and 900 or 640, _G.EH_PAID_EXECUTOR and 1100 or 820))
+Window = Library.Window("exchange.hook | https://discord.gg/33V5ccwAEv", Vector2.new(640, 820))
 Window.Watermark("Exchange.hook | v1.3.2 | https://discord.gg/33V5ccwAEv")
 _G.EH_Window  = Window
 _G.EH_Library = Library
@@ -6454,9 +6454,7 @@ _G.EH_Library = Library
 -- Paid executors (Potassium etc.) render Drawing text at lower DPI.
 -- Free executors (Xeno etc.) render crisp at default size.
 -- So bump font size for PAID executors.
-if _G.EH_PAID_EXECUTOR then
-    Library.Theme.TextSize = 24
-end
+-- paid executor size scaling removed
 
 -- Helper: paid-aware notification that always uses correct size
 local function EH_Notify(title, duration)
