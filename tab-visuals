@@ -156,4 +156,72 @@ CamSection:Toggle({Title = "camera tilt", Flag = "CamTilt", Default = false})
 CamSection:Slider({Title = "tilt angle", Flag = "CamTiltAngle", Symbol = "deg", Default = 15, Min = 0, Max = 45, Decimals = 1})
 
 
+
+local FreeCamSection = VisTab:Section("free cam", "Left")
+
+do
+    local _fcEnabled = false
+    local _fcCam = nil
+    local _fcConn = nil
+    local _fcSpeed = 20
+    local _fcSensLabel = FreeCamSection:Label("speed: 20")
+
+    FreeCamSection:Toggle({Title = "enable free cam", Flag = "FreeCam", Default = false, Callback = function(s)
+        _fcEnabled = s
+        if s then
+            -- store original camera
+            _fcCam = {mode = cam.CameraType, subject = cam.CameraSubject, cf = cam.CFrame}
+            cam.CameraType = Enum.CameraType.Scriptable
+            cam.CameraSubject = nil
+
+            local UIS = game:GetService("UserInputService")
+            local RS  = game:GetService("RunService")
+            local pitch, yaw = 0, 0
+            local lastMouse = UIS:GetMouseLocation()
+            local sens = 0.003
+
+            _fcConn = RS.RenderStepped:Connect(function(dt)
+                if not _fcEnabled then
+                    if _fcConn then _fcConn:Disconnect(); _fcConn = nil end
+                    return
+                end
+                -- mouse look
+                local m = UIS:GetMouseLocation()
+                local dx = m.X - lastMouse.X
+                local dy = m.Y - lastMouse.Y
+                lastMouse = m
+                yaw   = yaw   - dx * sens
+                pitch = math.clamp(pitch - dy * sens, -math.pi/2 + 0.01, math.pi/2 - 0.01)
+                local rot = CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)
+
+                -- WASD movement
+                local move = Vector3.new()
+                local spd = _fcSpeed * dt
+                if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + rot.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - rot.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - rot.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + rot.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.E) then move = move + Vector3.new(0,1,0) end
+                if UIS:IsKeyDown(Enum.KeyCode.Q) then move = move - Vector3.new(0,1,0) end
+
+                local pos = cam.CFrame.Position + move * spd
+                cam.CFrame = CFrame.new(pos) * rot
+            end)
+        else
+            if _fcConn then _fcConn:Disconnect(); _fcConn = nil end
+            if _fcCam then
+                cam.CameraType = _fcCam.mode or Enum.CameraType.Custom
+                cam.CameraSubject = game:GetService("Players").LocalPlayer.Character
+                    and game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                    or _fcCam.subject
+            end
+        end
+    end})
+
+    FreeCamSection:Slider({Title = "speed", Flag = "FreeCamSpeed", Symbol = "", Default = 20, Min = 5, Max = 150, Decimals = 0, Callback = function(v)
+        _fcSpeed = v
+        _fcSensLabel:Set("speed: " .. v)
+    end})
+end
+
 _G.EH_VisTab    = VisTab
