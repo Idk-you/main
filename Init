@@ -982,12 +982,16 @@ RunService.RenderStepped:Connect(function()
         cam.FieldOfView = CamS.fovVal
         pcall(function()
             local gs = ReplicatedStorage.Players[player.Name].Settings.GameplaySettings
-            gs:SetAttribute("defaultFOV", CamS.fovVal)
+            if gs:GetAttribute("DefaultFOV") ~= nil then
+                gs:SetAttribute("DefaultFOV", CamS.fovVal)
+            end
         end)
     elseif not CamS.fovOverride then
         pcall(function()
             local gs = ReplicatedStorage.Players[player.Name].Settings.GameplaySettings
-            gs:SetAttribute("defaultFOV", CamS.origFov)
+            if gs:GetAttribute("DefaultFOV") ~= nil then
+                gs:SetAttribute("DefaultFOV", CamS.origFov)
+            end
         end)
     end
 
