@@ -487,8 +487,8 @@ Library = {
         DarkContrast = Color3.fromHex("#191919"),
         Text = Color3.fromHex("#e8e8e8"),
         TextInactive = Color3.fromHex("#aaaaaa"),
-        Font = Drawing.Fonts.Monospace,
-        TextSize = 13,
+        Font = Drawing.Fonts.UI,
+        TextSize = 16,
         UseOutline = false
     },
     Icons = {},
