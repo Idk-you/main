@@ -319,6 +319,7 @@ RunService.Heartbeat:Connect(function(dt)
     espS.showName       = F["ESPNames"]      or false
     espS.showHSR        = F["ESPShowHSR"]    or false
     espS.showReports    = F["ESPShowReports"] or false
+    espS.showExtracts   = F["ESPExtracts"]    or false
     espS.showDistance   = F["ESPDist"]       or false
     espS.showHealth     = F["ESPHealth"]     or false
     espS.showWeapon     = F["ESPWeapon"]     or false
@@ -979,22 +980,44 @@ UserInputService.InputEnded:Connect(function(i, gp)
     end
 end)
 
+-- Zoom always-on: when zoom is toggled on (not held), keep FOV applied
+RunService.RenderStepped:Connect(function()
+    if CamS.zoomEnabled and Library.Flags["CamZoomKey"] == true then
+        cam.FieldOfView = CamS.zoomFov
+    end
+end)
+
+-- track whether game set FOV (ADS detection)
+local _fovLastSet = 0
+local _fovWasOverriding = false
 RunService.RenderStepped:Connect(function()
     if CamS.fovOverride and not (CamS.zoomEnabled and UserInputService:IsKeyDown(CamS.zoomKey)) then
-        cam.FieldOfView = CamS.fovVal
-        pcall(function()
-            local gs = ReplicatedStorage.Players[player.Name].Settings.GameplaySettings
-            if gs:GetAttribute("DefaultFOV") ~= nil then
-                gs:SetAttribute("DefaultFOV", CamS.fovVal)
-            end
-        end)
+        -- Only override if the game hasn't recently lowered FOV below our value (ADS check)
+        -- If cam FOV is already lower than our target, game is in ADS - don't fight it
+        local currentFov = cam.FieldOfView
+        local isADS = currentFov < CamS.fovVal - 5
+        if not isADS then
+            cam.FieldOfView = CamS.fovVal
+        end
+        if not _fovWasOverriding then
+            _fovWasOverriding = true
+            pcall(function()
+                local gs = ReplicatedStorage.Players[player.Name].Settings.GameplaySettings
+                if gs:GetAttribute("DefaultFOV") ~= nil then
+                    gs:SetAttribute("DefaultFOV", CamS.fovVal)
+                end
+            end)
+        end
     elseif not CamS.fovOverride then
-        pcall(function()
-            local gs = ReplicatedStorage.Players[player.Name].Settings.GameplaySettings
-            if gs:GetAttribute("DefaultFOV") ~= nil then
-                gs:SetAttribute("DefaultFOV", CamS.origFov)
-            end
-        end)
+        if _fovWasOverriding then
+            _fovWasOverriding = false
+            pcall(function()
+                local gs = ReplicatedStorage.Players[player.Name].Settings.GameplaySettings
+                if gs:GetAttribute("DefaultFOV") ~= nil then
+                    gs:SetAttribute("DefaultFOV", CamS.origFov)
+                end
+            end)
+        end
     end
 
     if CamS.tiltEnabled then
@@ -1486,7 +1509,30 @@ task.spawn(function()
     while true do
         task.wait(5)
         if BrzS.modDetector or BrzS.cheatDetector then
+            -- Reset check cache so we re-scan existing players each cycle
+            for _, p in ipairs(game.Players:GetPlayers()) do
+                if p ~= player then
+                    if BrzS.cheatDetector then _runCheatDetector(p) end
+                end
+            end
             _runModDetector()
+        end
+    end
+end)
+
+-- Immediately scan when detector first enabled
+Utility.AddConnection(Library.Communication.Event, function(eventType)
+    if eventType == "DetectorEnabled" then
+        BrzS._modChecked = {}
+        BrzS._modWarnings = {}
+        for _, p in ipairs(game.Players:GetPlayers()) do
+            if p ~= player then
+                task.spawn(function()
+                    task.wait(0.5)
+                    if BrzS.cheatDetector then _runCheatDetector(p) end
+                    if BrzS.modDetector then _runModDetector() end
+                end)
+            end
         end
     end
 end)
@@ -1495,6 +1541,36 @@ end)
 game.Players.PlayerAdded:Connect(function(p)
     task.wait(3)
     if BrzS.cheatDetector then _runCheatDetector(p) end
+end)
+
+-- ─── Self-report watcher ──────────────────────────────────────────────────────
+local _REPORT_TYPES = {
+    [0] = "Other",
+    [1] = "Aimbot/ESP",
+    [2] = "Speedhack/Teleport",
+    [3] = "Noclip/Underground",
+    [4] = "Flying",
+}
+local _knownReports = {}
+task.spawn(function()
+    while true do
+        task.wait(8)
+        pcall(function()
+            local myRs = ReplicatedStorage.Players:FindFirstChild(player.Name)
+            if not myRs then return end
+            local uac = myRs.Status:FindFirstChild("UAC")
+            local rptFolder = uac and uac:FindFirstChild("Reports")
+            if not rptFolder then return end
+            for attr, val in pairs(rptFolder:GetAttributes()) do
+                if not _knownReports[attr] then
+                    _knownReports[attr] = true
+                    local typeNum = tonumber(tostring(val)) or 0
+                    local typeName = _REPORT_TYPES[typeNum] or ("Type " .. tostring(typeNum))
+                    EH_Notify("[REPORT] You were reported for: " .. typeName, 10)
+                end
+            end
+        end)
+    end
 end)
 -- ──────────────────────────────────────────────────────────────────────────────
 
