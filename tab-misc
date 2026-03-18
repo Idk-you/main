@@ -96,7 +96,6 @@ MovSection:Dropdown({Title = "3p mode", Flag = "ThirdPersonMode",
 MovSection:Toggle({Title = "silent steps", Flag = "SilentSteps", Default = false})
 MovSection:Toggle({Title = "bunny hop", Flag = "BunnyHop", Default = false})
 MovSection:Slider({Title = "bhop power", Flag = "BhopPower", Symbol = "", Default = 22, Min = 10, Max = 60, Decimals = 1})
-MovSection:Toggle({Title = "no fall damage", Flag = "NoFallDmg", Default = false})
 MovSection:Toggle({Title = "long jump", Flag = "LongJump", Default = false})
 MovSection:Slider({Title = "long jump power", Flag = "LongJumpPow", Symbol = "", Default = 60, Min = 10, Max = 200, Decimals = 1})
 
