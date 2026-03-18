@@ -980,12 +980,8 @@ UserInputService.InputEnded:Connect(function(i, gp)
     end
 end)
 
--- Zoom always-on: when zoom is toggled on (not held), keep FOV applied
-RunService.RenderStepped:Connect(function()
-    if CamS.zoomEnabled and Library.Flags["CamZoomKey"] == true then
-        cam.FieldOfView = CamS.zoomFov
-    end
-end)
+-- Zoom: applied while key is held (Hold mode in keybind)
+-- CamS.zoomEnabled is set true by Hold keybind while key down, false on release
 
 -- track whether game set FOV (ADS detection)
 local _fovLastSet = 0
@@ -1544,12 +1540,12 @@ game.Players.PlayerAdded:Connect(function(p)
 end)
 
 -- ─── Self-report watcher ──────────────────────────────────────────────────────
-local _REPORT_TYPES = {
-    [0] = "Other",
-    [1] = "Aimbot/ESP",
-    [2] = "Speedhack/Teleport",
-    [3] = "Noclip/Underground",
-    [4] = "Flying",
+local _REPORT_TYPES = {[0]="Other",[1]="Aimbot/ESP",[2]="Speedhack/TP",[3]="Noclip/UG",[4]="Flying"}
+local _RPT_NAME_MAP = {
+    aimbot="Aimbot/ESP",esp="Aimbot/ESP",
+    speedhack="Speedhack/TP",teleport="Speedhack/TP",
+    noclip="Noclip/UG",underground="Noclip/UG",
+    flying="Flying",other="Other",
 }
 local _knownReports = {}
 task.spawn(function()
@@ -1564,9 +1560,19 @@ task.spawn(function()
             for attr, val in pairs(rptFolder:GetAttributes()) do
                 if not _knownReports[attr] then
                     _knownReports[attr] = true
-                    local typeNum = tonumber(tostring(val)) or 0
-                    local typeName = _REPORT_TYPES[typeNum] or ("Type " .. tostring(typeNum))
-                    EH_Notify("[REPORT] You were reported for: " .. typeName, 10)
+                    local typeNum = tonumber(tostring(val))
+                    local typeName
+                    if typeNum and _REPORT_TYPES[typeNum] then
+                        typeName = _REPORT_TYPES[typeNum]
+                    else
+                        local attrL = tostring(attr):lower()
+                        local valL  = tostring(val):lower()
+                        for k, v in pairs(_RPT_NAME_MAP) do
+                            if attrL:find(k) or valL:find(k) then typeName = v; break end
+                        end
+                        typeName = typeName or ("type "..tostring(val))
+                    end
+                    EH_Notify("[REPORT] Reported for: " .. typeName, 10)
                 end
             end
         end)
