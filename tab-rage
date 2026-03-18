@@ -45,9 +45,6 @@ WeapSection:Toggle({Title = "no recoil", Flag = "WepNoRecoil", Default = false, 
         end end
     end
 end})
-WeapSection:Toggle({Title = "no jump tilt", Flag = "NoJumpTilt", Default = false, Callback = function(s)
-    _applyNoJumpTilt(s)
-end})
 WeapSection:Toggle({Title = "water dmg bypass", Flag = "WaterBypass", Default = false, Callback = function(s)
     _applyWaterBypass(s)
 end})
