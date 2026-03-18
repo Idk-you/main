@@ -21,10 +21,16 @@ pcall(function()
                     attrName = skin:GetAttribute("ModelSkin")
                            or skin:GetAttribute("Name")
                            or skin.Name
+                    -- skip DV2-blacklisted melee skins
+                    local _dv2Blacklist = {
+                        AnarchyTomahawk=true, Greatsword=true,
+                        IceAxe=true, Karambit=true, Scythe=true
+                    }
+                    if _dv2Blacklist[attrName] then attrName = nil end
                 else
                     attrName = skin.Name
                 end
-                list[#list + 1] = attrName
+                if attrName then list[#list + 1] = attrName end
             end
             table.sort(list)
             _skinMap[catFolder.Name] = list
