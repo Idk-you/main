@@ -5037,6 +5037,7 @@ espS = {
     showTracers = false,
     showHSR = false,
     showReports = false,
+    showExtracts = false,
     tracerOrigin = "Bottom",
     tracerThickness = 1.0,
     tracerTransparency = 0.25,
@@ -5516,6 +5517,61 @@ createESPEntry = function(color)
         highlight = nil
     }
 end
+
+-- ─── Extract ESP heartbeat ────────────────────────────────────────────────────
+local _extractDrawings = {}
+local _extractScanTimer = 0
+RunService.Heartbeat:Connect(function(dt)
+    if not espS.showExtracts then
+        for _, d in pairs(_extractDrawings) do
+            pcall(function() d.txt.Visible = false; d.line.Visible = false end)
+        end
+        return
+    end
+    _extractScanTimer = _extractScanTimer + dt
+    if _extractScanTimer < 0.5 then return end
+    _extractScanTimer = 0
+    -- Hide all first
+    for _, d in pairs(_extractDrawings) do
+        pcall(function() d.txt.Visible = false; d.line.Visible = false end)
+    end
+    pcall(function()
+        local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        local noCol = workspace:FindFirstChild("NoCollision")
+        local exits = noCol and noCol:FindFirstChild("ExitLocations")
+        if not exits then return end
+        local idx = 0
+        for _, child in ipairs(exits:GetChildren()) do
+            local part = child:IsA("BasePart") and child
+                      or child:FindFirstChildWhichIsA("BasePart")
+            if part then
+                local pos = part.Position
+                local sp, vis, z = cam:WorldToViewportPoint(pos)
+                if vis and z > 0 then
+                    idx = idx + 1
+                    if not _extractDrawings[idx] then
+                        _extractDrawings[idx] = {
+                            txt  = newTxt(Color3.fromRGB(0, 255, 140), 13),
+                            line = newLine(Color3.fromRGB(0, 255, 140), 1.5),
+                        }
+                    end
+                    local d = _extractDrawings[idx]
+                    local dist = myHRP and math.floor((myHRP.Position - pos).Magnitude / 2.54 + 0.5) or 0
+                    local name = child.Name
+                    d.txt.Text     = name .. " [" .. dist .. "m]"
+                    d.txt.Position = Vector2.new(sp.X, sp.Y - 8)
+                    d.txt.Visible  = true
+                    -- draw line from screen bottom center to extract
+                    local vp = cam.ViewportSize
+                    d.line.From    = Vector2.new(vp.X / 2, vp.Y)
+                    d.line.To      = Vector2.new(sp.X, sp.Y)
+                    d.line.Visible = true
+                end
+            end
+        end
+    end)
+end)
+-- ──────────────────────────────────────────────────────────────────────────────
 
 removeESPEntry = function(d)
     if not d then return end
