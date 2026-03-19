@@ -5518,58 +5518,92 @@ createESPEntry = function(color)
     }
 end
 
--- ─── Extract ESP heartbeat ────────────────────────────────────────────────────
-local _extractDrawings = {}
-local _extractScanTimer = 0
-RunService.Heartbeat:Connect(function(dt)
+-- ─── Extract ESP ─────────────────────────────────────────────────────────────
+-- Source: workspace.NoCollision.ExitLocations — children are BaseParts directly
+-- Distance: studs * 0.28 = metres  (from Better_Project_Delta_V2)
+local _extractDrawings = {}   -- {txt, line} per extract slot
+local _extractColor    = Color3.fromRGB(0, 255, 140)
+local _extractRange    = 1500 -- metres max
+
+local function _getExtracts()
+    local noCol = workspace:FindFirstChild("NoCollision")
+    local exits = noCol and noCol:FindFirstChild("ExitLocations")
+    if not exits then return {} end
+    local result = {}
+    for _, child in ipairs(exits:GetChildren()) do
+        -- children can be BaseParts directly OR Models with a BasePart inside
+        local part = child:IsA("BasePart") and child
+                  or child:FindFirstChildWhichIsA("BasePart")
+        if part then
+            result[#result+1] = { name = child.Name, part = part }
+        end
+    end
+    return result
+end
+
+RunService.Heartbeat:Connect(function()
     if not espS.showExtracts then
         for _, d in pairs(_extractDrawings) do
-            pcall(function() d.txt.Visible = false; d.line.Visible = false end)
+            pcall(function() d.txt.Visible=false; d.line.Visible=false end)
         end
         return
     end
-    _extractScanTimer = _extractScanTimer + dt
-    if _extractScanTimer < 0.5 then return end
-    _extractScanTimer = 0
-    -- Hide all first
-    for _, d in pairs(_extractDrawings) do
-        pcall(function() d.txt.Visible = false; d.line.Visible = false end)
+    local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+    local vp     = cam.ViewportSize
+    local cx, cy = vp.X/2, vp.Y/2
+    local extracts = _getExtracts()
+
+    -- hide extras beyond current count
+    for i = #extracts+1, #_extractDrawings do
+        pcall(function() _extractDrawings[i].txt.Visible=false; _extractDrawings[i].line.Visible=false end)
     end
-    pcall(function()
-        local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        local noCol = workspace:FindFirstChild("NoCollision")
-        local exits = noCol and noCol:FindFirstChild("ExitLocations")
-        if not exits then return end
-        local idx = 0
-        for _, child in ipairs(exits:GetChildren()) do
-            local part = child:IsA("BasePart") and child
-                      or child:FindFirstChildWhichIsA("BasePart")
-            if part then
-                local pos = part.Position
-                local sp, vis, z = cam:WorldToViewportPoint(pos)
-                if vis and z > 0 then
-                    idx = idx + 1
-                    if not _extractDrawings[idx] then
-                        _extractDrawings[idx] = {
-                            txt  = newTxt(Color3.fromRGB(0, 255, 140), 13),
-                            line = newLine(Color3.fromRGB(0, 255, 140), 1.5),
-                        }
-                    end
-                    local d = _extractDrawings[idx]
-                    local dist = myHRP and math.floor((myHRP.Position - pos).Magnitude / 2.54 + 0.5) or 0
-                    local name = child.Name
-                    d.txt.Text     = name .. " [" .. dist .. "m]"
-                    d.txt.Position = Vector2.new(sp.X, sp.Y - 8)
+
+    for i, e in ipairs(extracts) do
+        -- create drawing pair if needed
+        if not _extractDrawings[i] then
+            _extractDrawings[i] = {
+                txt  = newTxt(_extractColor, 13),
+                line = newLine(_extractColor, 1.5),
+            }
+        end
+        local d   = _extractDrawings[i]
+        local pos = e.part.Position
+        -- distance in metres (studs * 0.28)
+        local distM = math.floor((myHRP.Position - pos).Magnitude * 0.28 + 0.5)
+        if distM > _extractRange then
+            d.txt.Visible=false; d.line.Visible=false
+        else
+            local sp, onscreen, z = cam:WorldToViewportPoint(pos)
+            if onscreen and z > 0 then
+                local label = e.name .. "  [" .. distM .. "m]"
+                d.txt.Text      = label
+                d.txt.Color     = _extractColor
+                d.txt.Position  = Vector2.new(sp.X, sp.Y - 10)
+                d.txt.Visible   = true
+                d.line.From     = Vector2.new(cx, vp.Y)
+                d.line.To       = Vector2.new(sp.X, sp.Y)
+                d.line.Color    = _extractColor
+                d.line.Visible  = true
+            else
+                -- off-screen: show direction indicator at screen edge
+                d.line.Visible = false
+                if z > 0 then
+                    -- clamp to screen border
+                    local dx, dy = sp.X - cx, sp.Y - cy
+                    local scale  = math.min(cx/math.abs(dx+0.001), cy/math.abs(dy+0.001)) * 0.9
+                    local ex     = math.clamp(cx + dx*scale, 10, vp.X-10)
+                    local ey     = math.clamp(cy + dy*scale, 10, vp.Y-10)
+                    d.txt.Text     = e.name .. " [" .. distM .. "m] >"
+                    d.txt.Position = Vector2.new(ex, ey)
+                    d.txt.Color    = Color3.fromRGB(255, 220, 80)
                     d.txt.Visible  = true
-                    -- draw line from screen bottom center to extract
-                    local vp = cam.ViewportSize
-                    d.line.From    = Vector2.new(vp.X / 2, vp.Y)
-                    d.line.To      = Vector2.new(sp.X, sp.Y)
-                    d.line.Visible = true
+                else
+                    d.txt.Visible = false
                 end
             end
         end
-    end)
+    end
 end)
 -- ──────────────────────────────────────────────────────────────────────────────
 
