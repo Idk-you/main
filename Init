@@ -1567,26 +1567,19 @@ task.spawn(function()
                 if not pFolder then continue end
                 local inv = pFolder:FindFirstChild("Inventory")
                 if not inv then continue end
-                -- also check character equipment
-                local char = workspace:FindFirstChild(plr.Name)
                 local found = {}
-                -- scan inventory folders
-                local function scanContainer(container)
-                    if not container then return end
-                    for _, item in ipairs(container:GetChildren()) do
-                        if _WANTED_ITEMS[item.Name] then
-                            found[item.Name] = true
+                -- scan all folders inside RS.Players[player].Inventory
+                -- each folder (e.g. Hotbar, Backpack, ChestRig) contains item instances by name
+                for _, folder in ipairs(inv:GetChildren()) do
+                    if folder:IsA("Folder") then
+                        for _, item in ipairs(folder:GetChildren()) do
+                            if _WANTED_ITEMS[item.Name] then
+                                found[item.Name] = true
+                            end
                         end
-                        -- check sub-containers (bags etc)
-                        local sub = item:FindFirstChild("Inventory")
-                        if sub then scanContainer(sub) end
-                    end
-                end
-                scanContainer(inv)
-                -- scan character tools
-                if char then
-                    for _, tool in ipairs(char:GetChildren()) do
-                        if _WANTED_ITEMS[tool.Name] then found[tool.Name] = true end
+                    elseif _WANTED_ITEMS[folder.Name] then
+                        -- direct child that is an item
+                        found[folder.Name] = true
                     end
                 end
                 if next(found) then
