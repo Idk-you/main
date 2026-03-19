@@ -1539,6 +1539,82 @@ game.Players.PlayerAdded:Connect(function(p)
     if BrzS.cheatDetector then _runCheatDetector(p) end
 end)
 
+-- ─── Wanted Item Scanner ─────────────────────────────────────────────────────
+local _WANTED_ITEMS = {
+    -- Armor
+    Altyn=true, FastVisor=true, HSPV=true, JPC=true,
+    QuadNVG=true, IOTV4=true, TitanShield=true,
+    -- Guns
+    AsVal=true, FAL=true, M4=true, PKM=true,
+    R700=true, TFZ98S=true,
+    -- Sellables
+    FlareGun=true, SPSh44=true, Gold50g=true,
+    Mag556Rnd100=true, Repair=true, SOCOM556=true,
+}
+local _wantedScanTimer = 0
+local _wantedAlerted   = {}   -- [playerName] = {itemName=true}
+task.spawn(function()
+    while true do
+        task.wait(20) -- scan every 20s
+        pcall(function()
+            if not BrzS.droppedItemESP then return end -- reuse droppedItemESP toggle
+            local rs = game:GetService("ReplicatedStorage")
+            local rsPlayers = rs:FindFirstChild("Players")
+            if not rsPlayers then return end
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+                if plr == player then continue end
+                local pFolder = rsPlayers:FindFirstChild(plr.Name)
+                if not pFolder then continue end
+                local inv = pFolder:FindFirstChild("Inventory")
+                if not inv then continue end
+                -- also check character equipment
+                local char = workspace:FindFirstChild(plr.Name)
+                local found = {}
+                -- scan inventory folders
+                local function scanContainer(container)
+                    if not container then return end
+                    for _, item in ipairs(container:GetChildren()) do
+                        if _WANTED_ITEMS[item.Name] then
+                            found[item.Name] = true
+                        end
+                        -- check sub-containers (bags etc)
+                        local sub = item:FindFirstChild("Inventory")
+                        if sub then scanContainer(sub) end
+                    end
+                end
+                scanContainer(inv)
+                -- scan character tools
+                if char then
+                    for _, tool in ipairs(char:GetChildren()) do
+                        if _WANTED_ITEMS[tool.Name] then found[tool.Name] = true end
+                    end
+                end
+                if next(found) then
+                    -- only notify for NEW items (not already alerted)
+                    if not _wantedAlerted[plr.Name] then _wantedAlerted[plr.Name] = {} end
+                    local newItems = {}
+                    for itemName in pairs(found) do
+                        if not _wantedAlerted[plr.Name][itemName] then
+                            newItems[#newItems+1] = itemName
+                            _wantedAlerted[plr.Name][itemName] = true
+                        end
+                    end
+                    if #newItems > 0 then
+                        EH_Notify("[" .. plr.Name .. "] has wanted items!
+" .. table.concat(newItems, ", "), 10)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- Reset alert cache when players leave
+game:GetService("Players").PlayerRemoving:Connect(function(p)
+    _wantedAlerted[p.Name] = nil
+end)
+-- ──────────────────────────────────────────────────────────────────────────────
+
 -- ─── Self-report watcher ──────────────────────────────────────────────────────
 local _REPORT_TYPES = {[0]="Other",[1]="Aimbot/ESP",[2]="Speedhack/TP",[3]="Noclip/UG",[4]="Flying"}
 local _RPT_NAME_MAP = {
