@@ -245,9 +245,7 @@ do
                         rptLines[#rptLines+1] = name .. ": " .. count
                     end
                 end
-                _rptLabel:Set("reports: " .. rptCount .. (#rptLines>0 and "
-  "..table.concat(rptLines,"
-  ") or ""))
+                _rptLabel:Set("reports: " .. rptCount .. (#rptLines>0 and " | "..table.concat(rptLines," | ") or ""))
                 local ws = pStats:FindFirstChild("Status")
                        and pStats.Status:FindFirstChild("Journey")
                        and pStats.Status.Journey:FindFirstChild("WipeStatistics")
