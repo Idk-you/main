@@ -118,7 +118,10 @@ WorldMiscSection:Toggle({Title = "anti-afk", Flag = "MiscAntiAFK", Default = fal
     Callback = function(s)
         if s then enableAntiAFK() else disableAntiAFK() end
     end})
-local _togDroppedESP = WorldMiscSection:Toggle({Title = "dropped item esp", Flag = "DroppedESP", Default = false, Callback = function(s)
+local _togDroppedESP = WorldMiscSection:Toggle({Title = "wanted item scanner", Flag = "WantedItemScanner", Default = false, Callback = function(s)
+    BrzS.wantedItemScanner = s
+end})
+WorldMiscSection:Toggle({Title = "dropped item esp", Flag = "DroppedESP", Default = false, Callback = function(s)
     BrzS.droppedItemESP = s
     task.spawn(function()
         if type(refreshDroppedESP) == "function" then refreshDroppedESP() end
