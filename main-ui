@@ -498,6 +498,7 @@ Library = {
     _toggles = {},
     Drawings = {},
     Ignores = {},
+    Notifications = {},  -- separate list, never hidden with menu
     Keybind = {},
     Watermark = {},
     Connections = {},
@@ -1061,6 +1062,7 @@ do
         Library.Watermark = {}
         Library.Keybind = {}
         Library.Ignores = {}
+        Library.Notifications = {}
 
     end
 
@@ -1405,7 +1407,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                 Color = Library.Theme.Inline,
                 Visible = true,
                 Filled = true
-            }, Library.Ignores)
+            }, Library.Notifications)
 
             local NotificationOutline = Utility.AddDrawing("Square", {
                 Size = Vector2.new(0, NotificationInline.Size.Y - 1),
@@ -1414,7 +1416,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                 Color = Library.Theme.DarkContrast,
                 Visible = true,
                 Filled = true
-            }, Library.Ignores)
+            }, Library.Notifications)
 
             local NotificationOutlineBorder = Utility.AddDrawing("Square", {
                 Size = Vector2.new(NotificationOutline.Size.X - 2, NotificationOutline.Size.Y + 5),
@@ -1423,7 +1425,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                 Color = Library.Theme.Accent[1],
                 Visible = false,
                 Filled = true
-            }, Library.Ignores)
+            }, Library.Notifications)
 
             local NotificationTopline = Utility.AddDrawing("Square", {
                 Size = Vector2.new(NotificationOutline.Size.X, 1),
@@ -1432,7 +1434,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                 Color = Type == "Warning" and Library.Theme.Notification.Warning or Type == "Error" and Library.Theme.Notification.Error or Library.Theme.DarkContrast,
                 Visible = Type == "Warning" or Type == "Error",
                 Filled = true
-            }, Library.Ignores)
+            }, Library.Notifications)
 
             local NotificationLeftline = Utility.AddDrawing("Square", {
                 Size = Vector2.new(1, NotificationOutline.Size.Y),
@@ -1441,7 +1443,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                 Color = Type == "Normal" and Library.Theme.Accent[1] or Library.Theme.DarkContrast,
                 Visible = Type == "Normal",
                 Filled = true
-            }, Library.Ignores)
+            }, Library.Notifications)
 
             local NotificationImage = Utility.AddDrawing("Image", {
                 Size = NotificationOutlineBorder.Size,
@@ -1449,7 +1451,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                 Transparency = 1,
                 Visible = true,
                 Data = Library.Theme.Gradient
-            }, Library.Ignores)
+            }, Library.Notifications)
 
             local NotificationText = Utility.AddDrawing("Text", {
                 Font = Library.Theme.Font,
@@ -1460,7 +1462,7 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                 Visible = true,
                 Center = false,
                 Outline = false
-            }, Library.Ignores)
+            }, Library.Notifications)
 
             NotificationInline.Size = Vector2.new(NotificationText.TextBounds.X + 15, 21)
 
@@ -1512,13 +1514,13 @@ local CalcuationSize = cur ~= "" and Vector2.new(CurrentBinds.TextBounds.X >= _k
                 task.wait(Duration)
 
                 pcall(function()
-                    Utility.RemoveDrawing(NotificationInline, Library.Ignores)
-                    Utility.RemoveDrawing(NotificationLeftline, Library.Ignores)
-                    Utility.RemoveDrawing(NotificationOutline, Library.Ignores)
-                    Utility.RemoveDrawing(NotificationOutlineBorder, Library.Ignores)
-                    Utility.RemoveDrawing(NotificationText, Library.Ignores)
-                    Utility.RemoveDrawing(NotificationTopline, Library.Ignores)
-                    Utility.RemoveDrawing(NotificationImage, Library.Ignores)
+                    Utility.RemoveDrawing(NotificationInline, Library.Notifications)
+                    Utility.RemoveDrawing(NotificationLeftline, Library.Notifications)
+                    Utility.RemoveDrawing(NotificationOutline, Library.Notifications)
+                    Utility.RemoveDrawing(NotificationOutlineBorder, Library.Notifications)
+                    Utility.RemoveDrawing(NotificationText, Library.Notifications)
+                    Utility.RemoveDrawing(NotificationTopline, Library.Notifications)
+                    Utility.RemoveDrawing(NotificationImage, Library.Notifications)
                 end)
 
                 Library.Communication:Fire("UpdateNotification")
