@@ -1552,44 +1552,68 @@ local _wantedAlerted = {}
 
 function _runWantedScan()
     if not BrzS.wantedItemScanner then return end
-    pcall(function()
-        local rsPlayers = ReplicatedStorage:FindFirstChild("Players")
-        if not rsPlayers then return end
-        for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
-            if plr == player then continue end
-            local pFolder = rsPlayers:FindFirstChild(plr.Name)
-            if not pFolder then continue end
-            local inv = pFolder:FindFirstChild("Inventory")
-            if not inv then continue end
-            local found = {}
-            -- Scan recursively: items can be direct children OR inside sub-folders
-            local function scanDeep(container, depth)
-                if not container or depth > 4 then return end
-                for _, child in ipairs(container:GetChildren()) do
-                    if _WANTED_ITEMS[child.Name] then
-                        found[child.Name] = true
-                    end
-                    if child:IsA("Folder") or child:IsA("Model") then
-                        scanDeep(child, depth + 1)
-                    end
-                end
-            end
-            scanDeep(inv, 0)
-            if next(found) then
-                if not _wantedAlerted[plr.Name] then _wantedAlerted[plr.Name] = {} end
-                local newItems = {}
-                for itemName in pairs(found) do
-                    if not _wantedAlerted[plr.Name][itemName] then
-                        newItems[#newItems+1] = itemName
-                        _wantedAlerted[plr.Name][itemName] = true
-                    end
-                end
-                if #newItems > 0 then
-                    EH_Notify("[" .. plr.Name .. "] has wanted items! " .. table.concat(newItems, ", "), 10)
+
+    -- DEBUG: notify that scan is running
+    EH_Notify("[WantedScan] scanning " .. #game:GetService("Players"):GetPlayers() .. " players...", 4)
+
+    local rsPlayers = ReplicatedStorage:FindFirstChild("Players")
+    if not rsPlayers then
+        EH_Notify("[WantedScan] ERROR: RS.Players not found", 5)
+        return
+    end
+
+    for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+        if plr == player then continue end
+
+        local pFolder = rsPlayers:FindFirstChild(plr.Name)
+        if not pFolder then
+            EH_Notify("[WantedScan] no RS folder for " .. plr.Name, 4)
+            continue
+        end
+
+        local inv = pFolder:FindFirstChild("Inventory")
+        if not inv then
+            EH_Notify("[WantedScan] " .. plr.Name .. " has no Inventory", 4)
+            continue
+        end
+
+        -- DEBUG: list everything in their inventory
+        local allItems = {}
+        local function scanDeep(container, depth)
+            if not container or depth > 4 then return end
+            for _, child in ipairs(container:GetChildren()) do
+                allItems[#allItems+1] = child.Name
+                if child:IsA("Folder") or child:IsA("Model") then
+                    scanDeep(child, depth + 1)
                 end
             end
         end
-    end)
+        scanDeep(inv, 0)
+
+        EH_Notify("[WantedScan] " .. plr.Name .. " inv: " .. table.concat(allItems, ","):sub(1,80), 8)
+
+        -- Check against wanted list
+        local found = {}
+        for _, name in ipairs(allItems) do
+            if _WANTED_ITEMS[name] then found[name] = true end
+        end
+
+        if next(found) then
+            if not _wantedAlerted[plr.Name] then _wantedAlerted[plr.Name] = {} end
+            local newItems = {}
+            for itemName in pairs(found) do
+                if not _wantedAlerted[plr.Name][itemName] then
+                    newItems[#newItems+1] = itemName
+                    _wantedAlerted[plr.Name][itemName] = true
+                end
+            end
+            if #newItems > 0 then
+                EH_Notify("[" .. plr.Name .. "] has wanted items! " .. table.concat(newItems, ", "), 10)
+            end
+        else
+            EH_Notify("[WantedScan] " .. plr.Name .. ": no wanted items found", 4)
+        end
+    end
 end
 
 -- Scan immediately on enable, then every 20s
