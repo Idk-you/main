@@ -6595,7 +6595,7 @@ _G.EH_Library = Library
 -- paid executor size scaling removed
 
 -- Helper: paid-aware notification that always uses correct size
-local function EH_Notify(title, duration)
+function EH_Notify(title, duration)
     duration = duration or 6
     -- Window.SendNotification uses Library.Theme.TextSize at call time - force it for paid
     Window.SendNotification("Normal", title, duration)
