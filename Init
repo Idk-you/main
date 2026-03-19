@@ -1557,7 +1557,7 @@ task.spawn(function()
     while true do
         task.wait(20) -- scan every 20s
         pcall(function()
-            if not BrzS.droppedItemESP then return end -- reuse droppedItemESP toggle
+            if not BrzS.wantedItemScanner then return end
             local rs = game:GetService("ReplicatedStorage")
             local rsPlayers = rs:FindFirstChild("Players")
             if not rsPlayers then return end
@@ -1600,8 +1600,7 @@ task.spawn(function()
                         end
                     end
                     if #newItems > 0 then
-                        EH_Notify("[" .. plr.Name .. "] has wanted items!
-" .. table.concat(newItems, ", "), 10)
+                        EH_Notify("[" .. plr.Name .. "] has wanted items! " .. table.concat(newItems, ", "), 10)
                     end
                 end
             end
