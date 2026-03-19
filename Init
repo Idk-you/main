@@ -1541,72 +1541,69 @@ end)
 
 -- ─── Wanted Item Scanner ─────────────────────────────────────────────────────
 local _WANTED_ITEMS = {
-    -- Armor
     Altyn=true, FastVisor=true, HSPV=true, JPC=true,
     QuadNVG=true, IOTV4=true, TitanShield=true,
-    -- Guns
     AsVal=true, FAL=true, M4=true, PKM=true,
     R700=true, TFZ98S=true,
-    -- Sellables
     FlareGun=true, SPSh44=true, Gold50g=true,
     Mag556Rnd100=true, Repair=true, SOCOM556=true,
 }
-local _wantedScanTimer = 0
-local _wantedAlerted   = {}   -- [playerName] = {itemName=true}
-task.spawn(function()
-    while true do
-        task.wait(20) -- scan every 20s
-        pcall(function()
-            if not BrzS.wantedItemScanner then return end
-            local rs = game:GetService("ReplicatedStorage")
-            local rsPlayers = rs:FindFirstChild("Players")
-            if not rsPlayers then return end
-            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
-                if plr == player then continue end
-                local pFolder = rsPlayers:FindFirstChild(plr.Name)
-                if not pFolder then continue end
-                local inv = pFolder:FindFirstChild("Inventory")
-                if not inv then continue end
-                local found = {}
-                -- scan all folders inside RS.Players[player].Inventory
-                -- each folder (e.g. Hotbar, Backpack, ChestRig) contains item instances by name
-                for _, folder in ipairs(inv:GetChildren()) do
-                    if folder:IsA("Folder") then
-                        for _, item in ipairs(folder:GetChildren()) do
-                            if _WANTED_ITEMS[item.Name] then
-                                found[item.Name] = true
-                            end
-                        end
-                    elseif _WANTED_ITEMS[folder.Name] then
-                        -- direct child that is an item
-                        found[folder.Name] = true
+local _wantedAlerted = {}
+
+function _runWantedScan()
+    if not BrzS.wantedItemScanner then return end
+    pcall(function()
+        local rsPlayers = ReplicatedStorage:FindFirstChild("Players")
+        if not rsPlayers then return end
+        for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+            if plr == player then continue end
+            local pFolder = rsPlayers:FindFirstChild(plr.Name)
+            if not pFolder then continue end
+            local inv = pFolder:FindFirstChild("Inventory")
+            if not inv then continue end
+            local found = {}
+            -- Scan recursively: items can be direct children OR inside sub-folders
+            local function scanDeep(container, depth)
+                if not container or depth > 4 then return end
+                for _, child in ipairs(container:GetChildren()) do
+                    if _WANTED_ITEMS[child.Name] then
+                        found[child.Name] = true
                     end
-                end
-                if next(found) then
-                    -- only notify for NEW items (not already alerted)
-                    if not _wantedAlerted[plr.Name] then _wantedAlerted[plr.Name] = {} end
-                    local newItems = {}
-                    for itemName in pairs(found) do
-                        if not _wantedAlerted[plr.Name][itemName] then
-                            newItems[#newItems+1] = itemName
-                            _wantedAlerted[plr.Name][itemName] = true
-                        end
-                    end
-                    if #newItems > 0 then
-                        EH_Notify("[" .. plr.Name .. "] has wanted items! " .. table.concat(newItems, ", "), 10)
+                    if child:IsA("Folder") or child:IsA("Model") then
+                        scanDeep(child, depth + 1)
                     end
                 end
             end
-        end)
+            scanDeep(inv, 0)
+            if next(found) then
+                if not _wantedAlerted[plr.Name] then _wantedAlerted[plr.Name] = {} end
+                local newItems = {}
+                for itemName in pairs(found) do
+                    if not _wantedAlerted[plr.Name][itemName] then
+                        newItems[#newItems+1] = itemName
+                        _wantedAlerted[plr.Name][itemName] = true
+                    end
+                end
+                if #newItems > 0 then
+                    EH_Notify("[" .. plr.Name .. "] has wanted items! " .. table.concat(newItems, ", "), 10)
+                end
+            end
+        end
+    end)
+end
+
+-- Scan immediately on enable, then every 20s
+task.spawn(function()
+    task.wait(5)
+    while true do
+        _runWantedScan()
+        task.wait(20)
     end
 end)
 
--- Reset alert cache when players leave
 game:GetService("Players").PlayerRemoving:Connect(function(p)
     _wantedAlerted[p.Name] = nil
 end)
--- ──────────────────────────────────────────────────────────────────────────────
-
 -- ─── Self-report watcher ──────────────────────────────────────────────────────
 local _REPORT_TYPES = {[0]="Other",[1]="Aimbot/ESP",[2]="Speedhack/TP",[3]="Noclip/UG",[4]="Flying"}
 local _RPT_NAME_MAP = {
