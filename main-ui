@@ -5133,6 +5133,7 @@ BrzS = {
     invCheckValue       = false,
 
     droppedItemESP      = false,
+    wantedItemScanner   = false,
     droppedItemColor    = Color3.fromRGB(255, 100, 0),
     corpseESP           = false,
     corpseColor         = Color3.fromRGB(0, 255, 0),
