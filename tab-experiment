@@ -227,17 +227,27 @@ do
             if pStats then
                 local uac = pStats:FindFirstChild("Status") and pStats.Status:FindFirstChild("UAC")
                 local rptFolder = uac and uac:FindFirstChild("Reports")
-                local _rptTypes = {[0]="Other",[1]="Aimbot/ESP",[2]="Speedhack/TP",[3]="Noclip/UG",[4]="Flying"}
-                local rptCount = 0
-                local rptLines = {}
+                -- Count reports per type (attr name = type number, attr value = count or 1)
+                local _rptNames = {["1"]="Aimbot/ESP",["2"]="Speedhack/TP",["3"]="Noclip/UG",["4"]="Flying",["0"]="Other"}
+                local rptCount  = 0
+                local rptLines  = {}
                 if rptFolder then
+                    local typeCounts = {}
                     for attr, val in pairs(rptFolder:GetAttributes()) do
-                        rptCount += 1
-                        local typeNum = tonumber(tostring(val)) or 0
-                        rptLines[#rptLines+1] = _rptTypes[typeNum] or ("type "..tostring(typeNum))
+                        -- attr might be the type number, val might be the count
+                        local typeKey = tostring(attr)
+                        local count   = tonumber(tostring(val)) or 1
+                        typeCounts[typeKey] = (typeCounts[typeKey] or 0) + count
+                        rptCount = rptCount + count
+                    end
+                    for typeKey, count in pairs(typeCounts) do
+                        local name = _rptNames[typeKey] or ("type "..typeKey)
+                        rptLines[#rptLines+1] = name .. ": " .. count
                     end
                 end
-                _rptLabel:Set("reports: " .. rptCount .. (#rptLines>0 and " ("..table.concat(rptLines,", ")..")" or ""))
+                _rptLabel:Set("reports: " .. rptCount .. (#rptLines>0 and "
+  "..table.concat(rptLines,"
+  ") or ""))
                 local ws = pStats:FindFirstChild("Status")
                        and pStats.Status:FindFirstChild("Journey")
                        and pStats.Status.Journey:FindFirstChild("WipeStatistics")
