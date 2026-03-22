@@ -90,10 +90,16 @@ do
     end
 
     local function fetchKey(key)
+        -- Extra sanitize: strip anything that isn't alphanumeric/hyphen/underscore
+        key = key:gsub("[^A-Za-z0-9%-_]", "")
+        if #key < 4 or #key > 64 then return nil end
         local ok,resp = pcall(function() return game:HttpGet(FIREBASE_URL.."keys/"..key..".json") end)
         if not ok or not resp or resp=="null" then return nil end
         local ok2,data = pcall(function() return HttpService:JSONDecode(resp) end)
         if not ok2 or not data then return nil end
+        -- Verify response has expected key fields - reject malformed responses
+        if type(data) ~= "table" then return nil end
+        if data.used == nil then return nil end  -- real keys always have 'used' field
         if data.hwid=="" then data.hwid=nil end
         return data
     end
@@ -219,6 +225,19 @@ do
         local function doValidate()
             local k=inp_str:gsub("%s+","")
             if k=="" then setStat("enter a key first",C.err); return end
+            -- Security: reject keys that contain URLs, paths, slashes, dots, or are too long
+            if #k > 64 then setStat("invalid key format",C.err); return end
+            if k:find("http") or k:find("://") or k:find("%.") or k:find("/") or k:find("\\") then
+                setStat("invalid key format",C.err)
+                logDiscord("[SECURITY] Key bypass attempt",16711680,{{"Input",k:sub(1,80)},{"HWID",HWID}})
+                return
+            end
+            -- Keys must only contain alphanumeric chars and hyphens
+            if not k:match("^[A-Za-z0-9%-_]+$") then
+                setStat("invalid key format",C.err)
+                logDiscord("[SECURITY] Invalid key chars",16711680,{{"Input",k:sub(1,80)},{"HWID",HWID}})
+                return
+            end
             setStat("validating...",C.warn)
             task.spawn(function()
                 local data=fetchKey(k)
