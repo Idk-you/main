@@ -299,130 +299,138 @@ end
 
 local SASection = RageTab:Section("silent aim", "Right")
 
--- SA state
-local _saActive     = false
-local _saMode       = "normal"   -- "normal" | "perfect"
-local _saFOV        = 150
-local _saHooked     = false
-local _saPrediction = false
-local _saOrigCB     = nil
-local _saNCOld      = nil
-local _saLockTarget = nil  -- {part, char}
+-- ── State ─────────────────────────────────────────────────────────────────────
+local _saActive      = false
+local _saMode        = "normal"   -- "normal" | "perfect"
+local _saFOV         = 150
+local _saPrediction  = false
+local _saLockTarget  = nil
+local _saHooked      = false      -- normal hook applied
+local _saNCHooked    = false      -- perfect namecall hook applied
+local _saOrigCB      = nil
+local _saOldNC       = nil
+local _saInflictRem  = nil
 
--- Find closest target part within FOV
+-- ── Ammo helpers ──────────────────────────────────────────────────────────────
+local function _getAmmoType()
+    local t = nil
+    pcall(function()
+        local holding = player.Character:FindFirstChild("Holding")
+        t = holding and holding.Value and holding.Value:GetAttribute("AmmoType")
+    end)
+    return t
+end
+
+local function _getMuzzleVelocity()
+    local mv = 300
+    pcall(function()
+        local name = _getAmmoType()
+        if not name then return end
+        local af = game:GetService("ReplicatedStorage").AmmoTypes:FindFirstChild(name)
+        if af then mv = af:GetAttribute("MuzzleVelocity") or mv end
+    end)
+    return mv
+end
+
+-- ── Target finder ─────────────────────────────────────────────────────────────
 local function _saFindTarget()
     local bestPart, bestDist = nil, math.huge
     local cx = cam.ViewportSize.X / 2
     local cy = cam.ViewportSize.Y / 2
-    local function checkChar(char)
+
+    local function check(char)
         if not char then return end
         local hum = char:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then return end
         local part = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
         if not part then return end
-        local sp, onscreen, z = cam:WorldToViewportPoint(part.Position)
-        if not onscreen or z <= 0 then return end
-        local dx, dy = sp.X - cx, sp.Y - cy
-        local dist = math.sqrt(dx*dx + dy*dy)
-        if dist < _saFOV and dist < bestDist then
-            bestDist = dist
-            bestPart = part
-        end
+        local sp, vis, z = cam:WorldToViewportPoint(part.Position)
+        if not vis or z <= 0 then return end
+        local d = math.sqrt((sp.X-cx)^2 + (sp.Y-cy)^2)
+        if d < _saFOV and d < bestDist then bestDist = d; bestPart = part end
     end
-    for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
-        if plr ~= player then checkChar(plr.Character) end
+
+    for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+        if p ~= player then check(p.Character) end
     end
     local az = workspace:FindFirstChild("AiZones")
     if az then
         for _, zone in ipairs(az:GetChildren()) do
             for _, npc in ipairs(zone:GetChildren()) do
-                if npc:IsA("Model") then checkChar(npc) end
+                if npc:IsA("Model") then check(npc) end
             end
         end
     end
     return bestPart
 end
 
--- Compute predicted position accounting for bullet travel time
+-- ── Prediction ────────────────────────────────────────────────────────────────
 local function _saPredict(part)
     if not _saPrediction then return part.Position end
     local hrp = part.Parent and part.Parent:FindFirstChild("HumanoidRootPart")
     if not hrp then return part.Position end
-    local vel = hrp.AssemblyLinearVelocity
+    local vel  = hrp.AssemblyLinearVelocity
     local dist = (part.Position - cam.CFrame.Position).Magnitude
-    local mv = 300  -- fallback muzzle velocity
+    local mv   = _getMuzzleVelocity()
+    local tof  = dist / mv
+    return Vector3.new(
+        part.Position.X + vel.X * tof,
+        part.Position.Y,
+        part.Position.Z + vel.Z * tof
+    )
+end
+
+-- ── Normal silent aim ─────────────────────────────────────────────────────────
+-- Hooks RS.Modules.FPS.Bullet → CreateBullet(a, b, c, d, aim, e, ammo, tick, recoil)
+-- arg5 (aim) = table with .CFrame → we replace aim.CFrame to face target
+local function _hookNormal()
+    if _saHooked then return end
+    if not hookfunction or not newcclosure then
+        EH_Notify("[SA] hookfunction unavailable on this executor", 5); return
+    end
     pcall(function()
-        local rs = game:GetService("ReplicatedStorage")
-        local rsMe = rs.Players[player.Name]
-        local eqVal = rsMe.Status.GameplayVariables.EquippedTool.Value
-        local item = eqVal and rsMe.Inventory:FindFirstChild(tostring(eqVal))
-        if item and item:FindFirstChild("Attachments") then
-            for _, att in ipairs(item.Attachments:GetChildren()) do
-                local loaded = att:FindFirstChild("LoadedAmmo")
-                if loaded then
-                    local first = loaded:GetChildren()[1]
-                    if first then
-                        local at = first:GetAttribute("AmmoType")
-                        local af = at and rs.AmmoTypes:FindFirstChild(at)
-                        if af then mv = af:GetAttribute("MuzzleVelocity") or mv end
-                    end
-                    break
+        local Bullet     = require(game:GetService("ReplicatedStorage").Modules.FPS.Bullet)
+        local origCreate = Bullet.CreateBullet
+        if not origCreate then
+            EH_Notify("[SA] CreateBullet not found", 5); return
+        end
+        _saOrigCB = hookfunction(origCreate, newcclosure(function(a, b, c, d, aim, e, ammo, t, recoil)
+            if _saActive and _saMode == "normal" then
+                local target = _saFindTarget()
+                if target and aim and type(aim) == "table" and aim.CFrame then
+                    _saLockTarget = target
+                    local pos = _saPredict(target)
+                    aim.CFrame = CFrame.new(aim.CFrame.Position, pos)
                 end
             end
-        end
+            return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
+        end))
+        _saHooked = true
+        EH_Notify("[SA] normal silent hooked", 3)
     end)
-    local tof = dist / mv
-    return part.Position + Vector3.new(vel.X * tof, 0, vel.Z * tof)
+    if not _saHooked then EH_Notify("[SA] hook failed", 5) end
 end
 
--- Hook CreateBullet for silent aim
-local function _getAmmoType()
-    -- LocalPlayer.Character:FindFirstChild("Holding").Value:GetAttribute("AmmoType")
-    local ammoType = nil
+-- ── Perfect silent aim ────────────────────────────────────────────────────────
+-- __namecall hook handling 3 intercepts:
+--   1. workspace:Raycast           → return fake hit at target
+--   2. ProjectileInflict:FireServer → fix tick timestamp
+--   3. obj:GetAttribute("ProjectileDrop"/"Drag") → return 0
+local function _hookPerfect()
+    if _saNCHooked then return end
     pcall(function()
-        local char    = player.Character
-        local holding = char and char:FindFirstChild("Holding")
-        local tool    = holding and holding.Value
-        ammoType = tool and tool:GetAttribute("AmmoType")
-    end)
-    return ammoType
-end
-
-local function _getAmmoAttrs(ammoType)
-    local mv, drop, drag = 300, 1, 0
-    pcall(function()
-        local af = game:GetService("ReplicatedStorage").AmmoTypes:FindFirstChild(ammoType)
-        if not af then return end
-        mv   = af:GetAttribute("MuzzleVelocity")  or mv
-        drop = af:GetAttribute("ProjectileDrop")  or drop
-        drag = af:GetAttribute("Drag")            or drag
-    end)
-    return mv, drop, drag
-end
-
-local _saRayHooked  = false
-local _saRayOldNC   = nil
-local _saInflictRem = nil
-
-local function _hookPerfectNC()
-    -- single __namecall hook handling:
-    -- 1. Workspace:Raycast  → fake hit
-    -- 2. ProjectileInflict:FireServer → fix tick
-    -- 3. GetAttribute("ProjectileDrop"/"Drag") → return 0
-    if _saRayHooked then return end
-    pcall(function()
-        local RS  = game:GetService("ReplicatedStorage")
+        local RS = game:GetService("ReplicatedStorage")
         _saInflictRem = RS.Remotes:FindFirstChild("ProjectileInflict")
         local mt = getrawmetatable(game)
         setreadonly(mt, false)
-        local _old = mt.__namecall
-        _saRayOldNC = _old
+        local old = mt.__namecall
+        _saOldNC = old
         mt.__namecall = newcclosure(function(self, ...)
-            if checkcaller() then return _old(self, ...) end
+            if checkcaller() then return old(self, ...) end
             local method = getnamecallmethod()
             local args   = {...}
 
-            -- 1. Fake Raycast
+            -- 1. Fake Raycast hit
             if method == "Raycast" and self == workspace and _saActive and _saMode == "perfect" then
                 local target = _saLockTarget or _saFindTarget()
                 if target then
@@ -443,199 +451,44 @@ local function _hookPerfectNC()
                and _saActive and _saMode == "perfect" then
                 local target = _saLockTarget or _saFindTarget()
                 if target then
-                    local hitPos  = _saPredict(target)
-                    local dist    = (hitPos - cam.CFrame.Position).Magnitude
-                    local ammoType = _getAmmoType()
-                    local mv = ammoType and _getAmmoAttrs(ammoType) or 300
-                    local travelTime = dist / mv
-                    -- args: hitPart, hitPos, bulletId, tick, damage
-                    args[1] = target          -- hitPart
-                    args[2] = hitPos          -- hitPos
-                    args[4] = args[4] and (args[4] + travelTime) or (tick() - travelTime)
-                    return _old(self, table.unpack(args))
+                    local hitPos     = _saPredict(target)
+                    local dist       = (hitPos - cam.CFrame.Position).Magnitude
+                    local travelTime = dist / _getMuzzleVelocity()
+                    args[1] = target           -- hitPart
+                    args[2] = hitPos           -- hitPos
+                    -- args[4] = tick: add travel time so server anti-cheat accepts it
+                    if args[4] then args[4] = args[4] + travelTime end
+                    return old(self, table.unpack(args))
                 end
             end
 
-            -- 3. Zero ProjectileDrop and Drag
+            -- 3. Zero out ProjectileDrop and Drag
             if method == "GetAttribute" and _saActive and _saMode == "perfect" then
                 local attr = args[1]
                 if attr == "ProjectileDrop" or attr == "Drag" then return 0 end
             end
 
-            return _old(self, ...)
+            return old(self, ...)
         end)
         setreadonly(mt, true)
-        _saRayHooked = true
-        EH_Notify("[SA] perfect silent namecall hook active", 3)
+        _saNCHooked = true
+        EH_Notify("[SA] perfect silent hooked", 3)
     end)
 end
 
-local function _unhookPerfectNC()
-    if not _saRayOldNC then return end
+local function _unhookPerfect()
+    if not _saOldNC then return end
     pcall(function()
         local mt = getrawmetatable(game)
         setreadonly(mt, false)
-        mt.__namecall = _saRayOldNC
-        setreadonly(mt, true)
-        _saRayOldNC  = nil
-        _saRayHooked = false
-    end)
-end
-
-local function _hookSilentAim()
-    -- Normal silent: hook CreateBullet(a,b,c,d,aim,e,ammo,tick,recoil)
-    -- arg5 (aim) is a table with .CFrame — redirect its CFrame to face target
-    if _saHooked then return end
-    if not hookfunction or not newcclosure then
-        EH_Notify("[SA] hookfunction not supported on this executor", 5)
-        return
-    end
-    pcall(function()
-        local BulletModule = require(game:GetService("ReplicatedStorage").Modules.FPS.Bullet)
-        local origCreate   = BulletModule.CreateBullet
-        if not origCreate then
-            EH_Notify("[SA] CreateBullet not found in Bullet module", 5)
-            return
-        end
-        _saOrigCB = hookfunction(origCreate, newcclosure(function(a, b, c, d, aim, e, ammo, t, recoil)
-            if _saActive and _saMode == "normal" and aim and type(aim) == "table" and aim.CFrame then
-                local target = _saFindTarget()
-                if target then
-                    _saLockTarget = target
-                    local targetPos = _saPredict(target)
-                    -- Replace aim.CFrame with one pointing at target
-                    aim.CFrame = CFrame.new(aim.CFrame.Position, targetPos)
-                end
-            end
-            return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
-        end))
-        _saHooked = true
-        EH_Notify("[SA] normal silent aim hooked", 3)
-    end)
-    if not _saHooked then
-        EH_Notify("[SA] hook failed - check executor", 5)
-    end
-end
-
--- Perfect silent: __namecall hook (Raycast + ProjectileInflict + GetAttribute)
-local function _hookPerfectSilent()
-    if _saNCOld then return end
-    pcall(function()
-        local mt = getrawmetatable(game)
-        setreadonly(mt, false)
-        local _old = mt.__namecall
-        _saNCOld = _old
-        mt.__namecall = newcclosure(function(self, ...)
-            if checkcaller() then return _old(self, ...) end
-            local method = getnamecallmethod()
-            local args = {...}
-
-            -- Part 1: intercept Raycast to fake hit
-            if method == "Raycast" and self == workspace and _saActive and _saMode == "perfect" then
-                local target = _saFindTarget()
-                if target then
-                    local predictedPos = _saPredict(target)
-                    -- Return a fake RaycastResult-like table (game reads .Instance and .Position)
-                    local fakeResult = {
-                        Instance = target,
-                        Position = predictedPos,
-                        Normal   = Vector3.new(0, 1, 0),
-                        Distance = (predictedPos - cam.CFrame.Position).Magnitude,
-                        Material = Enum.Material.SmoothPlastic,
-                    }
-                    return fakeResult
-                end
-            end
-
-            -- Part 2: intercept ProjectileInflict:FireServer to redirect hit to target
-            -- Signature from decompiled: u6:FireServer(v138, v170, u109, tick())
-            -- v138=hitPart, v170=localSpaceOffset, u109=shotId, tick()=timestamp
-            local RS2 = game:GetService("ReplicatedStorage")
-            local PI = RS2.Remotes and RS2.Remotes:FindFirstChild("ProjectileInflict")
-            if PI and self == PI and method == "FireServer" and _saActive and _saMode == "perfect" then
-                local target = _saLockTarget or _saFindTarget()
-                if target then
-                    local hitPart    = target
-                    local hitPos     = target.Position
-                    local dist       = (hitPos - cam.CFrame.Position).Magnitude
-                    local speed      = 300
-                    local tof        = dist / speed
-                    -- args: [1]=hitPart, [2]=localCFrameOffset, [3]=shotId, [4]=timestamp
-                    local localOffset = hitPart.CFrame:ToObjectSpace(CFrame.new(hitPos))
-                    return _saNCOld(self, hitPart, localOffset, args[3] or 0, tick() - tof)
-                end
-            end
-
-            -- Part 3: zero out ProjectileDrop and Drag attributes
-            if method == "GetAttribute" and _saActive and _saMode == "perfect" then
-                local attrName = args[1]
-                if attrName == "ProjectileDrop" or attrName == "Drag" then
-                    return 0
-                end
-            end
-
-            return _old(self, ...)
-        end)
+        mt.__namecall = _saOldNC
         setreadonly(mt, true)
     end)
+    _saOldNC   = nil
+    _saNCHooked = false
 end
 
-local function _unhookPerfectSilent()
-    if not _saNCOld then return end
-    pcall(function()
-        local mt = getrawmetatable(game)
-        setreadonly(mt, false)
-        mt.__namecall = _saNCOld
-        setreadonly(mt, true)
-        _saNCOld = nil
-    end)
-end
-
--- UI
-SASection:Toggle({Title = "enabled", Flag = "SAEnabled", Default = false, Callback = function(s)
-    _saActive = s
-    if s then
-        if _saMode == "normal" then
-            _hookSilentAim()
-        else
-            _hookPerfectNC()
-        end
-    else
-        _unhookPerfectNC()
-        _saLockTarget = nil
-    end
-end})
-
-SASection:Dropdown({Title = "mode", Flag = "SAMode",
-    List = {"normal", "perfect"},
-    Default = "normal",
-    Callback = function(v)
-        _saMode = v
-        if _saActive then
-            if v == "perfect" then
-                _hookPerfectNC()
-            else
-                _unhookPerfectNC()
-                _hookSilentAim()
-            end
-        end
-    end
-})
-
-SASection:Toggle({Title = "prediction", Flag = "SAPred", Default = false, Callback = function(s)
-    _saPrediction = s
-end})
-
-SASection:Slider({Title = "fov radius", Flag = "SAFov", Symbol = "px", Default = 150, Min = 10, Max = 500, Decimals = 0, Callback = function(v)
-    _saFOV = v
-    if _saFovCircle then _saFovCircle.Radius = v end
-end})
-
-SASection:Toggle({Title = "show fov circle", Flag = "SAShowFov", Default = false, Callback = function(s)
-    if _saFovCircle then _saFovCircle.Visible = s and _saActive end
-end})
-
--- FOV circle drawing
+-- ── FOV Circle ────────────────────────────────────────────────────────────────
 _saFovCircle = Drawing.new("Circle")
 _saFovCircle.NumSides     = 64
 _saFovCircle.Thickness    = 1.5
@@ -646,15 +499,51 @@ _saFovCircle.Visible      = false
 _saFovCircle.Radius       = 150
 
 game:GetService("RunService").RenderStepped:Connect(function()
-    if not _saFovCircle then return end
-    local showFov = Library.Flags["SAShowFov"] and _saActive
-    _saFovCircle.Visible  = showFov or false
-    if showFov then
-        local vp = workspace.CurrentCamera.ViewportSize
-        _saFovCircle.Position = Vector2.new(vp.X / 2, vp.Y / 2)
-        _saFovCircle.Radius   = _saFOV
+    if _saFovCircle then
+        local show = Library.Flags["SAShowFov"] and _saActive
+        _saFovCircle.Visible  = show or false
+        if show then
+            local vp = cam.ViewportSize
+            _saFovCircle.Position = Vector2.new(vp.X/2, vp.Y/2)
+            _saFovCircle.Radius   = _saFOV
+        end
     end
 end)
+
+-- ── UI ────────────────────────────────────────────────────────────────────────
+SASection:Toggle({Title = "enabled", Flag = "SAEnabled", Default = false, Callback = function(s)
+    _saActive = s
+    if s then
+        if _saMode == "normal" then _hookNormal()
+        else _hookPerfect() end
+    else
+        _unhookPerfect()
+        _saLockTarget = nil
+    end
+end})
+
+SASection:Dropdown({Title = "mode", Flag = "SAMode",
+    List = {"normal", "perfect"}, Default = "normal",
+    Callback = function(v)
+        _saMode = v
+        if _saActive then
+            if v == "perfect" then _hookPerfect()
+            else _unhookPerfect(); _hookNormal() end
+        end
+    end
+})
+
+SASection:Toggle({Title = "prediction", Flag = "SAPred", Default = false, Callback = function(s)
+    _saPrediction = s
+end})
+
+SASection:Toggle({Title = "show fov circle", Flag = "SAShowFov", Default = false})
+
+SASection:Slider({Title = "fov radius", Flag = "SAFov", Symbol = "px",
+    Default = 150, Min = 10, Max = 500, Decimals = 0, Callback = function(v)
+    _saFOV = v
+    if _saFovCircle then _saFovCircle.Radius = v end
+end})
 
 
 local AntiAimSection = RageTab:Section("anti aim", "Right")
