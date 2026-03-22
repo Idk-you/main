@@ -394,19 +394,57 @@ local function _hookNormal()
         if not origCreate then
             EH_Notify("[SA] CreateBullet not found", 5); return
         end
-        _saOrigCB = hookfunction(origCreate, newcclosure(function(...)
-            -- Tables are by reference - modify aim in-place, never touch the arg list
-            if _saActive and _saMode == "normal" then
-                local aim = select(5, ...)  -- arg5 = aim table
-                local target = _saFindTarget()
-                if target and aim and type(aim) == "table" and aim.CFrame then
-                    _saLockTarget = target
-                    local pos = _saPredict(target)
-                    aim.CFrame = CFrame.new(aim.CFrame.Position, pos)
-                    -- aim is modified in-place, no need to re-pass it
-                end
+        _saOrigCB = hookfunction(origCreate, newcclosure(function(a, b, c, d, aim, e, ammo, t, recoil)
+            -- Get aim position safely (aim can be a table with .CFrame or a part with .Position)
+            local aimCF = nil
+            pcall(function() aimCF = aim.CFrame end)
+            if not aimCF then pcall(function() aimCF = CFrame.new(aim.Position) end) end
+
+            -- If SA not active, pass through normally
+            if not (_saActive and _saMode == "normal") then
+                return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
             end
-            return _saOrigCB(...)  -- pass original ... completely unchanged
+
+            -- Need a valid aimPos to build new CFrame
+            local aimPos = nil
+            if aimCF then aimPos = aimCF.Position end
+            if not aimPos then pcall(function() aimPos = aim.Position end) end
+            if typeof(aimPos) ~= "Vector3" then
+                return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
+            end
+
+            -- Find target
+            local target = _saFindTarget()
+            if not target then
+                return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
+            end
+            _saLockTarget = target
+
+            -- Compute final aim position with optional prediction
+            local finalPos = target.Position
+            pcall(function()
+                if not _saPrediction then return end
+                local ammoObj = game:GetService("ReplicatedStorage").AmmoTypes:FindFirstChild(ammo)
+                if not ammoObj then return end
+                local speed = ammoObj:GetAttribute("MuzzleVelocity")
+                local drop  = ammoObj:GetAttribute("ProjectileDrop")
+                if not speed then return end
+                local hrp = target.Parent and target.Parent:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local vel = hrp.AssemblyLinearVelocity
+                    local dist = (target.Position - aimPos).Magnitude
+                    local tof  = dist / speed
+                    finalPos = Vector3.new(
+                        target.Position.X + vel.X * tof,
+                        target.Position.Y,
+                        target.Position.Z + vel.Z * tof
+                    )
+                end
+            end)
+
+            -- Build new aim table with redirected CFrame
+            local newAim = { CFrame = CFrame.new(aimPos, finalPos) }
+            return _saOrigCB(a, b, c, d, newAim, e, ammo, t, recoil)
         end))
         _saHooked = true
         EH_Notify("[SA] normal silent hooked", 3)
