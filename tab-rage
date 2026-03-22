@@ -289,23 +289,18 @@ end
 
 local SASection = RageTab:Section("silent aim", "Right")
 
--- ── SA / IH shared state ───────────────────────────────────────────────────────
+-- ── SA state ──────────────────────────────────────────────────────────────────
 local _saActive     = false
 local _saFOV        = 150
 local _saPrediction = false
 local _saHooked     = false
 local _saOrigCB     = nil
 
-local _ihActive     = false
-local _ihHooked     = false
-local _ihOldNC      = nil
-
--- Shared between SA hookfunction and IH namecall hook:
---   _ihTarget   = the target BasePart found when bullet was created
---   _ihFireTick = tick() at the moment CreateBullet was called
---                 (= the same tick used in FireProjectile:InvokeServer)
-local _ihTarget     = nil
-local _ihFireTick   = nil
+-- ── IH state — completely independent of SA ───────────────────────────────────
+local _ihActive   = false
+local _ihHooked   = false
+local _ihOldNC    = nil
+local _ihTarget   = nil  -- set inside Raycast intercept, read by FireServer intercept
 
 -- ── Ballistic helpers (petal) ─────────────────────────────────────────────────
 local function _saaSolve(A, B, C)
@@ -371,7 +366,7 @@ local function _saGetTarget()
     return closest
 end
 
--- ── Silent aim hookfunction (petal exact logic) ───────────────────────────────
+-- ── Silent aim — EXACT same working version, zero changes ─────────────────────
 local function _hookNormal()
     if _saHooked then return end
     if not hookfunction then
@@ -384,16 +379,10 @@ local function _hookNormal()
     end
 
     local OldBullet
-    OldBullet = hookfunction(BulletModule.CreateBullet, function(a, b, c, d, aim, e, ammo, tick, recoil)
+    OldBullet = hookfunction(BulletModule.CreateBullet, function(a, b, c, d, aim, e, ammo, t, recoil)
         if _saActive and not checkcaller() then
             local target = _saGetTarget()
             if target and aim and aim.Position then
-                -- Store target + fire timestamp for the instant hit hook.
-                -- _ihFireTick mirrors the tick() inside FireProjectile:InvokeServer
-                -- which is called right at the start of CreateBullet's inner loop.
-                _ihTarget   = target
-                _ihFireTick = tick()  -- same moment bullet is registered on server
-
                 local ammoObj = RS.AmmoTypes:FindFirstChild(ammo)
                 if ammoObj then
                     ammoObj:SetAttribute("Drag", 0)
@@ -405,17 +394,11 @@ local function _hookNormal()
                     local vdrop = _saaDrop(aim.Position, pos, speed, drop)
                     return OldBullet(a, b, c, d,
                         { CFrame = CFrame.new(aim.Position, pos + vdrop) },
-                        e, ammo, tick, recoil)
+                        e, ammo, t, recoil)
                 end
-            else
-                _ihTarget   = nil
-                _ihFireTick = nil
             end
-        else
-            _ihTarget   = nil
-            _ihFireTick = nil
         end
-        return OldBullet(a, b, c, d, aim, e, ammo, tick, recoil)
+        return OldBullet(a, b, c, d, aim, e, ammo, t, recoil)
     end)
 
     _saOrigCB = OldBullet
@@ -423,28 +406,25 @@ local function _hookNormal()
     EH_Notify("[SA] silent aim active", 3)
 end
 
--- ── Instant hit hookmetamethod ────────────────────────────────────────────────
+-- ── Instant hit — hookmetamethod only, SA hookfunction untouched ───────────────
 --
---  Three parts:
+--  How it works:
 --
---  Part 1 — workspace:Raycast fake hit
---    The bullet sim's RenderStepped loop (FPS.Bullet onStep) calls Raycast every
---    frame. We return a fake result pointing at _ihTarget so the sim "hits" them
---    on frame 1, through walls. The fake table needs exactly four fields:
---    Instance, Position, Normal, Material — those are the only ones FPS.Bullet reads.
+--  The bullet sim's RenderStepped loop (FPS.Bullet onStep) runs every frame:
+--    1. workspace:Raycast(origin, Unit*stepSize, params)  ← we intercept this
+--       We return a fake result pointing at the closest FOV target.
+--       _ihTarget is set here (not in SA hook — that's the previous bug's fix).
 --
---  Part 2 — ProjectileInflict:FireServer with ping delay + tick fix
---    Root cause of "blood but no damage": FireServer fires on frame 1 (~16ms),
---    but FireProjectile:InvokeServer (async coroutine inside CreateBullet) needs
---    ~ping ms to register the bullet on the server. Server receives ProjectileInflict
---    before it knows about the bullet → rejects.
---    Fix: suppress the original call, delay our version by 2× ping so the bullet
---    is definitely registered first. Also set tick = _ihFireTick + dist/speed so
---    the server's time validation sees a believable travel duration.
+--    2. When the Raycast hits a Humanoid ancestor, game calls:
+--       ProjectileInflict:FireServer(hitPart, offsetCF, bulletId, tickTimestamp)
+--       args[4] = tickTimestamp — server validates this against expected travel time.
+--       We add dist/speed to it so the server sees a believable travel duration.
+--       We also delay this call by 2×ping so FireProjectile:InvokeServer (which
+--       runs in a coroutine just before the sim loop) has time to register the
+--       bullet with the server first. Without this delay you get blood but no damage.
 --
---  Part 3 — GetAttribute("Drag") and GetAttribute("ProjectileDrop") → 0
---    Removes drag and drop from the physics so the trajectory is perfectly straight,
---    which keeps the fake hit position geometrically consistent.
+--  Part 3: GetAttribute("ProjectileDrop") and ("Drag") → 0
+--       Makes trajectory straight so the fake hit position is geometrically consistent.
 --
 local function _hookInstantHit()
     if _ihHooked then return end
@@ -476,7 +456,7 @@ local function _hookInstantHit()
         local method = getnamecallmethod()
         local args   = { ... }
 
-        -- ── Part 3: zero drag and drop so trajectory stays straight ──────────
+        -- Part 3: zero drop and drag on AmmoType objects only
         if method == "GetAttribute" and _ihActive then
             local attr = args[1]
             if attr == "ProjectileDrop" or attr == "Drag" then
@@ -488,19 +468,19 @@ local function _hookInstantHit()
             end
         end
 
-        -- ── Part 1: fake Raycast → instant hit through walls ─────────────────
-        -- FPS.Bullet onStep (decompiled line 313):
-        --   workspace:Raycast(estimatedCamPos, Unit * stepSize, raycastParams)
-        -- Returns: { Instance, Position, Normal, Material } — only these four
-        -- fields are read from the result. Instance must be a real BasePart so
-        -- FindDeepAncestor and :FindFirstChild("Humanoid") work correctly.
-        if method == "Raycast" and self == workspace and _ihActive and _ihTarget then
-            local target = _ihTarget
-            local origin = args[1]
-            if typeof(origin) == "Vector3" then
+        -- Part 1: intercept workspace:Raycast from the bullet sim
+        -- Return a fake RaycastResult pointing at the closest FOV target.
+        -- _ihTarget is set here so SA hookfunction stays completely untouched.
+        if method == "Raycast" and self == workspace and _ihActive then
+            local target = _saGetTarget()
+            if target then
+                _ihTarget = target
+                local origin = args[1]
                 local normal = Vector3.new(0, 1, 0)
                 pcall(function()
-                    normal = (origin - target.Position).Unit
+                    if typeof(origin) == "Vector3" then
+                        normal = (origin - target.Position).Unit
+                    end
                 end)
                 return {
                     Instance = target,
@@ -511,40 +491,26 @@ local function _hookInstantHit()
             end
         end
 
-        -- ── Part 2: ProjectileInflict:FireServer with delay + tick correction ─
-        -- Decompiled line 417:
-        --   ProjectileInflict:FireServer(hitPart, hitPosOffset, bulletId, tick())
-        --   args[1] = hitPart    args[2] = hitPosOffset
-        --   args[3] = bulletId   args[4] = tick()
-        --
-        -- We SUPPRESS the original call (return without calling oldNC) and fire
-        -- our own delayed version so FireProjectile:InvokeServer has time to
-        -- register the bullet on the server before we claim the hit.
-        -- Tick is set to _ihFireTick + dist/speed = what the server expects.
+        -- Part 2: ProjectileInflict:FireServer — delay + tick correction
+        -- args[4] = tickTimestamp from the bullet sim (this is the value the
+        -- server checks against expected travel time). We add dist/speed.
+        -- We delay by 2×ping so the bullet is registered server-side first.
         if method == "FireServer" and self.Name == "ProjectileInflict" and _ihActive then
-            local target   = _ihTarget
-            local fireTick = _ihFireTick
-            _ihTarget   = nil  -- clear immediately — next shot gets fresh values
-            _ihFireTick = nil
-
+            local target    = _ihTarget
             local savedSelf = self
             local savedArgs = { unpack(args) }
+            _ihTarget = nil  -- clear for next shot
 
-            -- Recalculate tick: fireTick + (distance / muzzleVelocity)
-            -- This is what the server expects: time of fire + bullet travel time
             pcall(function()
-                if target and fireTick then
+                if target and type(savedArgs[4]) == "number" then
                     local dist  = (target.Position - cam.CFrame.Position).Magnitude
                     local speed = _getSpeed()
                     if speed > 0 then
-                        savedArgs[4] = fireTick + dist / speed
+                        savedArgs[4] = savedArgs[4] + dist / speed
                     end
                 end
             end)
 
-            -- Delay = 2 × player ping, minimum 100ms.
-            -- FireProjectile:InvokeServer (async coroutine inside CreateBullet)
-            -- needs one round-trip to register the bullet. We wait for that.
             local pingDelay = 0.1
             pcall(function()
                 pingDelay = math.max(0.1, LP:GetNetworkPing() * 2)
@@ -556,7 +522,7 @@ local function _hookInstantHit()
                 end)
             end)
 
-            -- Suppress the original call — our delayed one handles it
+            -- suppress original, our delayed version handles it
             return
         end
 
@@ -573,10 +539,9 @@ local function _unhookInstantHit()
     pcall(function()
         hookmetamethod(game, "__namecall", _ihOldNC)
     end)
-    _ihOldNC    = nil
-    _ihHooked   = false
-    _ihTarget   = nil
-    _ihFireTick = nil
+    _ihOldNC  = nil
+    _ihHooked = false
+    _ihTarget = nil
     EH_Notify("[IH] instant hit off", 2)
 end
 
