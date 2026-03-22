@@ -386,28 +386,23 @@ end
 local function _hookNormal()
     if _saHooked then return end
     if not hookfunction or not newcclosure then
-        EH_Notify("[SA] hookfunction not supported on this executor", 5)
-        return
+        EH_Notify("[SA] not supported on this executor", 5); return
     end
-    -- small random delay like the original
     task.wait(math.random(5, 15) / 100)
     local ok, BM = pcall(require, game:GetService("ReplicatedStorage").Modules.FPS.Bullet)
     if not ok or not BM or not BM.CreateBullet then
-        EH_Notify("[SA] Bullet module failed to load", 5); return
+        EH_Notify("[SA] Bullet module failed", 5); return
     end
     if typeof(BM.CreateBullet) ~= "function" then
-        EH_Notify("[SA] CreateBullet is not a function - may be patched", 5); return
+        EH_Notify("[SA] CreateBullet not a function - may be patched", 5); return
     end
-
     local function bulletCallback(a, b, c, d, aim, e, ammo, t, recoil)
-        -- Guard: special weapons pass nil args - let them through untouched
         if t == nil or recoil == nil or aim == nil then
             return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
         end
         if not (_saActive and _saMode == "normal") then
             return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
         end
-        -- Get aim position safely
         local aimCF = nil
         pcall(function() aimCF = aim.CFrame end)
         if not aimCF then pcall(function() aimCF = CFrame.new(aim.Position) end) end
@@ -416,13 +411,11 @@ local function _hookNormal()
         if typeof(aimPos) ~= "Vector3" then
             return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
         end
-        -- Find target
         local target = _saFindTarget()
         if not target then
             return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
         end
         _saLockTarget = target
-        -- Compute final position with optional prediction
         local finalPos = target.Position
         pcall(function()
             if not _saPrediction then return end
@@ -442,71 +435,19 @@ local function _hookNormal()
                 target.Position.Z + vel.Z * tof
             )
         end)
-        -- Redirect: create new aim table with redirected CFrame (exactly as per snippet)
         local newAim = { CFrame = CFrame.new(aimPos, finalPos) }
         return _saOrigCB(a, b, c, d, newAim, e, ammo, t, recoil)
     end
-
     local hookOk, hookErr = pcall(function()
-        _saOrigCB = hookfunction(BM.CreateBullet, newcclosure(bulletCallback))
+        _saOrigCB = hookfunction(BM.CreateBullet, bulletCallback)
     end)
     if not hookOk or not _saOrigCB then
-        EH_Notify("[SA] hook failed: " .. tostring(hookErr), 5)
-        return
+        EH_Notify("[SA] hook failed: " .. tostring(hookErr), 5); return
     end
     _saHooked = true
     EH_Notify("[SA] silent aim hooked!", 3)
 end
--- ── Perfect silent aim ────────────────────────────────────────────────────────
-local _saNCHooked    = false
-local _saOldNC       = nil
-local _saInflictRem  = nil
 
-local function _hookPerfect()
-    if _saNCHooked then return end
-    pcall(function()
-        local RS = game:GetService("ReplicatedStorage")
-        _saInflictRem = RS.Remotes:FindFirstChild("ProjectileInflict")
-        local mt = getrawmetatable(game)
-        setreadonly(mt, false)
-        local old = mt.__namecall
-        _saOldNC = old
-        mt.__namecall = newcclosure(function(self, ...)
-            if checkcaller() then return old(self, ...) end
-            local method = getnamecallmethod()
-            local args   = {...}
-            if method == "Raycast" and self == workspace and _saActive and _saMode == "perfect" then
-                local target = _saLockTarget or _saFindTarget()
-                if target then
-                    local pos = _saPredict(target)
-                    return { Instance=target, Position=pos, Normal=Vector3.new(0,1,0),
-                             Material=Enum.Material.SmoothPlastic,
-                             Distance=(pos-cam.CFrame.Position).Magnitude }
-                end
-            end
-            if method == "FireServer" and _saInflictRem and self == _saInflictRem
-               and _saActive and _saMode == "perfect" then
-                local target = _saLockTarget or _saFindTarget()
-                if target then
-                    local hitPos = _saPredict(target)
-                    local dist   = (hitPos - cam.CFrame.Position).Magnitude
-                    local mv     = _getMuzzleVelocity()
-                    local tof    = dist / mv
-                    args[1] = target; args[2] = hitPos
-                    if args[4] then args[4] = args[4] + tof end
-                    return old(self, table.unpack(args))
-                end
-            end
-            if method == "GetAttribute" and _saActive and _saMode == "perfect" then
-                local attr = args[1]
-                if attr == "ProjectileDrop" or attr == "Drag" then return 0 end
-            end
-            return old(self, ...)
-        end)
-        setreadonly(mt, true)
-        _saNCHooked = true
-        EH_Notify("[SA] perfect silent hooked", 3)
-    end)
 end
 
 local function _unhookPerfect()
