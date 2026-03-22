@@ -394,72 +394,51 @@ local function _hookNormal()
         if not origCreate then
             EH_Notify("[SA] CreateBullet not found", 5); return
         end
-        -- SA debug log
-        local _saLogPath = "ExchangeHook/sa_debug.txt"
-        local function _saLog(msg)
-            pcall(function()
-                local existing = ""
-                if isfile(_saLogPath) then existing = readfile(_saLogPath) end
-                writefile(_saLogPath, existing .. os.date("[%H:%M:%S] ") .. msg .. "\n")
-            end)
-        end
-        pcall(function() if not isfolder("ExchangeHook") then makefolder("ExchangeHook") end end)
-        writefile(_saLogPath, "=== SA Debug Log ===\n")
-        _saLog("hook installed on CreateBullet")
-
         _saOrigCB = hookfunction(origCreate, newcclosure(function(a, b, c, d, aim, e, ammo, t, recoil)
-            -- Log every call with arg types
-            _saLog(string.format("CreateBullet called | a=%s b=%s c=%s d=%s aim=%s ammo=%s t=%s recoil=%s",
-                type(a), type(b), type(c), type(d), type(aim), type(ammo), type(t), type(recoil)))
-
-            -- Log aim contents
-            if type(aim) == "table" then
-                local keys = {}
-                for k in pairs(aim) do keys[#keys+1] = tostring(k) end
-                _saLog("aim keys: " .. table.concat(keys, ", "))
-                if aim.CFrame then _saLog("aim.CFrame = " .. tostring(aim.CFrame)) end
-                if aim.Position then _saLog("aim.Position = " .. tostring(aim.Position)) end
-            elseif aim ~= nil then
-                _saLog("aim type=" .. type(aim) .. " value=" .. tostring(aim))
-                -- maybe aim is a BasePart/CFrame directly
-                local ok, cf = pcall(function() return aim.CFrame end)
-                if ok and cf then _saLog("aim.CFrame (direct) = " .. tostring(cf)) end
-            else
-                _saLog("aim is NIL")
+            -- aim is a BasePart (AimPartCanted) - a real Roblox Instance, NOT a table
+            -- We must set its CFrame directly and pass the original part back unchanged
+            if _saActive and _saMode == "normal" and aim then
+                local target = _saFindTarget()
+                if target then
+                    _saLockTarget = target
+                    -- Safely get original CFrame
+                    local origCF = nil
+                    pcall(function() origCF = aim.CFrame end)
+                    if origCF then
+                        -- Compute final position with optional prediction
+                        local finalPos = target.Position
+                        if _saPrediction then
+                            pcall(function()
+                                local ammoObj = game:GetService("ReplicatedStorage").AmmoTypes:FindFirstChild(ammo)
+                                if not ammoObj then return end
+                                local speed = ammoObj:GetAttribute("MuzzleVelocity") or 300
+                                local hrp = target.Parent and target.Parent:FindFirstChild("HumanoidRootPart")
+                                if not hrp then return end
+                                local vel = hrp.AssemblyLinearVelocity
+                                local dist = (target.Position - origCF.Position).Magnitude
+                                local tof = dist / speed
+                                finalPos = Vector3.new(
+                                    target.Position.X + vel.X * tof,
+                                    target.Position.Y,
+                                    target.Position.Z + vel.Z * tof
+                                )
+                            end)
+                        end
+                        -- Set CFrame on the real BasePart to face target
+                        pcall(function()
+                            aim.CFrame = CFrame.new(origCF.Position, finalPos)
+                        end)
+                        -- Call original with the SAME aim part (now redirected)
+                        local result = table.pack(_saOrigCB(a, b, c, d, aim, e, ammo, t, recoil))
+                        -- Restore original CFrame immediately after
+                        task.defer(function()
+                            pcall(function() aim.CFrame = origCF end)
+                        end)
+                        return table.unpack(result, 1, result.n)
+                    end
+                end
             end
-
-            -- Get aim position safely
-            local aimCF = nil
-            pcall(function() aimCF = aim.CFrame end)
-            if not aimCF then pcall(function() aimCF = CFrame.new(aim.Position) end) end
-
-            if not (_saActive and _saMode == "normal") then
-                _saLog("SA not active, passing through")
-                return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
-            end
-
-            local aimPos = nil
-            if aimCF then aimPos = aimCF.Position end
-            if not aimPos then pcall(function() aimPos = aim.Position end) end
-            _saLog("aimPos = " .. tostring(aimPos))
-
-            if typeof(aimPos) ~= "Vector3" then
-                _saLog("aimPos not Vector3, passing through")
-                return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
-            end
-
-            local target = _saFindTarget()
-            _saLog("target = " .. tostring(target and target.Name or "nil"))
-
-            if not target then
-                return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
-            end
-            _saLockTarget = target
-
-            local finalPos = target.Position
-            local newAim = { CFrame = CFrame.new(aimPos, finalPos) }
-            _saLog("redirecting aim to " .. tostring(finalPos))
-            return _saOrigCB(a, b, c, d, newAim, e, ammo, t, recoil)
+            return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
         end))
         _saHooked = true
         EH_Notify("[SA] normal silent hooked", 3)
