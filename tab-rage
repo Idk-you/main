@@ -470,8 +470,6 @@ local function _hookNormal()
     EH_Notify("[SA] silent aim hooked!", 3)
 end
 
-end
-
 local function _unhookPerfect()
     if not _saOldNC then return end
     pcall(function()
