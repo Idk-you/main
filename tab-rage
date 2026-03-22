@@ -296,11 +296,17 @@ local _saPrediction = false
 local _saHooked     = false
 local _saOrigCB     = nil
 
--- ── IH state — completely independent of SA ───────────────────────────────────
-local _ihActive   = false
-local _ihHooked   = false
-local _ihOldNC    = nil
-local _ihTarget   = nil  -- set inside Raycast intercept, read by FireServer intercept
+-- ── Instant hit state (ported from skvjw9z reference) ─────────────────────────
+local _ihActive       = false
+local _ihHooked       = false
+-- instantTarget: the FOV-closest part, set inside the SA hookfunction each shot
+-- so the Raycast hook always knows where to redirect
+local instantTarget   = nil
+-- lastHitPart: set in Raycast hook, used in ProjectileInflict:FireServer hook
+local lastHitPart     = nil
+-- bulletData: keyed by bulletId, stores origin/tick/speed/drag for tick correction
+-- populated in FireProjectile:InvokeServer hook, consumed in ProjectileInflict:FireServer
+local bulletData      = {}
 
 -- ── Ballistic helpers (petal) ─────────────────────────────────────────────────
 local function _saaSolve(A, B, C)
@@ -366,7 +372,7 @@ local function _saGetTarget()
     return closest
 end
 
--- ── Silent aim — EXACT same working version, zero changes ─────────────────────
+-- ── Silent aim — exact working petal logic, unchanged ─────────────────────────
 local function _hookNormal()
     if _saHooked then return end
     if not hookfunction then
@@ -383,6 +389,9 @@ local function _hookNormal()
         if _saActive and not checkcaller() then
             local target = _saGetTarget()
             if target and aim and aim.Position then
+                -- Also set instantTarget so the IH Raycast hook has a target this shot
+                instantTarget = target
+
                 local ammoObj = RS.AmmoTypes:FindFirstChild(ammo)
                 if ammoObj then
                     ammoObj:SetAttribute("Drag", 0)
@@ -396,7 +405,11 @@ local function _hookNormal()
                         { CFrame = CFrame.new(aim.Position, pos + vdrop) },
                         e, ammo, t, recoil)
                 end
+            else
+                instantTarget = nil
             end
+        else
+            instantTarget = nil
         end
         return OldBullet(a, b, c, d, aim, e, ammo, t, recoil)
     end)
@@ -406,142 +419,196 @@ local function _hookNormal()
     EH_Notify("[SA] silent aim active", 3)
 end
 
--- ── Instant hit — hookmetamethod only, SA hookfunction untouched ───────────────
+-- ── Instant hit — ported directly from skvjw9z reference ──────────────────────
 --
---  How it works:
+--  Four hooks inside one __namecall replacement:
 --
---  The bullet sim's RenderStepped loop (FPS.Bullet onStep) runs every frame:
---    1. workspace:Raycast(origin, Unit*stepSize, params)  ← we intercept this
---       We return a fake result pointing at the closest FOV target.
---       _ihTarget is set here (not in SA hook — that's the previous bug's fix).
+--  Hook 1 — GetAttribute("ProjectileDrop" / "Drag") → 0
+--    Removes bullet drop and drag so trajectory is straight and
+--    the fake hit position stays geometrically consistent.
 --
---    2. When the Raycast hits a Humanoid ancestor, game calls:
---       ProjectileInflict:FireServer(hitPart, offsetCF, bulletId, tickTimestamp)
---       args[4] = tickTimestamp — server validates this against expected travel time.
---       We add dist/speed to it so the server sees a believable travel duration.
---       We also delay this call by 2×ping so FireProjectile:InvokeServer (which
---       runs in a coroutine just before the sim loop) has time to register the
---       bullet with the server first. Without this delay you get blood but no damage.
+--  Hook 2 — workspace:Raycast (always wallbang)
+--    Bullet sim calls Raycast every frame. When _ihActive and instantTarget
+--    is set (by SA hookfunction above), we return a fake RaycastResult
+--    pointing at the target. Sets lastHitPart for Hook 4.
 --
---  Part 3: GetAttribute("ProjectileDrop") and ("Drag") → 0
---       Makes trajectory straight so the fake hit position is geometrically consistent.
+--  Hook 3 — FireProjectile:InvokeServer
+--    Fires right at the start of CreateBullet to register the bullet on
+--    the server. We capture bulletId, tick, and origin/speed into bulletData
+--    so Hook 4 can compute the correct tick correction.
+--    We still call oldNC so the bullet is actually registered.
+--
+--  Hook 4 — ProjectileInflict:FireServer
+--    Called after the Raycast hit. We apply the drag-corrected tick so
+--    the server's travel-time validation passes. Uses bulletData from Hook 3.
+--    Also overrides args[1] with lastHitPart so the server knows what was hit.
 --
 local function _hookInstantHit()
     if _ihHooked then return end
-    if not hookmetamethod then
-        EH_Notify("[IH] hookmetamethod unavailable", 5); return
-    end
 
     local RS = game:GetService("ReplicatedStorage")
-    local LP = game:GetService("Players").LocalPlayer
 
-    local function _getSpeed()
-        local speed = 300
-        pcall(function()
-            local holding  = player.Character and player.Character:FindFirstChild("Holding")
-            local wep      = holding and holding.Value
-            local ammoType = wep and wep:GetAttribute("AmmoType")
-            if ammoType then
-                local ammoObj = RS.AmmoTypes:FindFirstChild(ammoType)
-                if ammoObj then speed = ammoObj:GetAttribute("MuzzleVelocity") or speed end
-            end
-        end)
-        return speed
+    local mt    = getrawmetatable(game)
+    local oldNC = mt and mt.__namecall
+
+    if not oldNC then
+        EH_Notify("[IH] __namecall unavailable on this executor", 5)
+        _ihActive = false; return
     end
 
-    local oldNC
-    oldNC = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-        if checkcaller() then return oldNC(self, ...) end
-
+    local function newNC(self, ...)
         local method = getnamecallmethod()
         local args   = { ... }
 
-        -- Part 3: zero drop and drag on AmmoType objects only
-        if method == "GetAttribute" and _ihActive then
+        -- Hook 1: zero drop and drag
+        if _ihActive and method == "GetAttribute" then
             local attr = args[1]
             if attr == "ProjectileDrop" or attr == "Drag" then
-                local isAmmo = false
-                pcall(function()
-                    isAmmo = self.Parent and self.Parent.Name == "AmmoTypes"
-                end)
-                if isAmmo then return 0 end
+                return 0
             end
         end
 
-        -- Part 1: intercept workspace:Raycast from the bullet sim
-        -- Return a fake RaycastResult pointing at the closest FOV target.
-        -- _ihTarget is set here so SA hookfunction stays completely untouched.
-        if method == "Raycast" and self == workspace and _ihActive then
-            local target = _saGetTarget()
-            if target then
-                _ihTarget = target
+        -- Hook 2: workspace:Raycast → fake instant hit
+        if method == "Raycast" and self == workspace then
+            if _ihActive and instantTarget and instantTarget.Parent then
                 local origin = args[1]
-                local normal = Vector3.new(0, 1, 0)
-                pcall(function()
-                    if typeof(origin) == "Vector3" then
-                        normal = (origin - target.Position).Unit
-                    end
-                end)
-                return {
-                    Instance = target,
-                    Position = target.Position,
-                    Normal   = normal,
-                    Material = Enum.Material.SmoothPlastic,
-                }
+                if typeof(origin) == "Vector3" then
+                    lastHitPart = instantTarget
+                    return {
+                        Instance = instantTarget,
+                        Position = instantTarget.Position,
+                        Normal   = (origin - instantTarget.Position).Unit,
+                        Material = instantTarget:IsA("BasePart")
+                            and instantTarget.Material
+                            or  Enum.Material.SmoothPlastic,
+                        Distance = (instantTarget.Position - origin).Magnitude,
+                    }
+                end
             end
         end
 
-        -- Part 2: ProjectileInflict:FireServer — delay + tick correction
-        -- args[4] = tickTimestamp from the bullet sim (this is the value the
-        -- server checks against expected travel time). We add dist/speed.
-        -- We delay by 2×ping so the bullet is registered server-side first.
-        if method == "FireServer" and self.Name == "ProjectileInflict" and _ihActive then
-            local target    = _ihTarget
-            local savedSelf = self
-            local savedArgs = { unpack(args) }
-            _ihTarget = nil  -- clear for next shot
-
-            pcall(function()
-                if target and type(savedArgs[4]) == "number" then
-                    local dist  = (target.Position - cam.CFrame.Position).Magnitude
-                    local speed = _getSpeed()
-                    if speed > 0 then
-                        savedArgs[4] = savedArgs[4] + dist / speed
-                    end
-                end
-            end)
-
-            local pingDelay = 0.1
-            pcall(function()
-                pingDelay = math.max(0.1, LP:GetNetworkPing() * 2)
-            end)
-
-            task.delay(pingDelay, function()
-                pcall(function()
-                    oldNC(savedSelf, unpack(savedArgs))
+        -- Hook 3: FireProjectile:InvokeServer — capture bullet metadata
+        if _ihActive and method == "InvokeServer"
+            and typeof(self) == "Instance"
+            and self.Name == "FireProjectile"
+        then
+            local bulletId = args[2]
+            local shotTick = args[3]
+            local aimObj   = args[1]
+            if bulletId then
+                task.spawn(function()
+                    pcall(function()
+                        local char     = player.Character
+                        local holding  = char and char:FindFirstChild("Holding")
+                        local weapon   = holding and holding.Value
+                        local ammoName = weapon and weapon:GetAttribute("AmmoType")
+                        local ammoObj  = ammoName and RS.AmmoTypes:FindFirstChild(ammoName)
+                        if not ammoObj then
+                            for _, a in pairs(RS.AmmoTypes:GetChildren()) do
+                                ammoObj = a; break
+                            end
+                        end
+                        local speed  = ammoObj and ammoObj:GetAttribute("MuzzleVelocity") or 500
+                        local drag   = 0  -- zeroed by Hook 1
+                        local origin = Vector3.new()
+                        pcall(function()
+                            if typeof(aimObj) == "CFrame" then
+                                origin = aimObj.Position
+                            elseif typeof(aimObj) == "Instance" then
+                                origin = aimObj.CFrame and aimObj.CFrame.Position or aimObj.Position
+                            end
+                        end)
+                        bulletData[bulletId] = {
+                            Origin          = origin,
+                            Tick            = shotTick or 0,
+                            Drag            = drag,
+                            ProjectileSpeed = speed,
+                        }
+                    end)
                 end)
-            end)
+            end
+            -- Must still call original so bullet registers on server
+            return oldNC(self, ...)
+        end
 
-            -- suppress original, our delayed version handles it
-            return
+        -- Hook 4: ProjectileInflict:FireServer — drag-corrected tick + override hitPart
+        if _ihActive and method == "FireServer"
+            and typeof(self) == "Instance"
+            and self.Name == "ProjectileInflict"
+        then
+            -- Skip calls that originate from CharacterController (non-bullet hits)
+            if debug and debug.traceback then
+                local ok2, tb = pcall(debug.traceback)
+                if ok2 and tb and tb:find("CharacterController") then
+                    return oldNC(self, ...)
+                end
+            end
+
+            local part     = lastHitPart
+            local bulletId = args[3]
+
+            if part and part.Parent then
+                local K = bulletId and bulletData[bulletId]
+                if K and K.ProjectileSpeed and K.ProjectileSpeed > 0 then
+                    -- Compute travel time A = dist / speed, then correct for
+                    -- target velocity and drag (drag was zeroed so correction is small)
+                    local dist  = (part.Position - K.Origin).Magnitude
+                    local A     = dist / K.ProjectileSpeed
+                    local hPos  = part.Position + (part.Velocity * A)
+                    local o     = (hPos - part.Position).Magnitude
+                    local spd2  = K.ProjectileSpeed - K.Drag * K.ProjectileSpeed^2 * A^2
+                    if spd2 and spd2 > 0 then
+                        A = A + (o / spd2)
+                    end
+                    if A > 0 then K.Tick = K.Tick + A end
+                    args[4] = K.Tick
+                    bulletData[bulletId] = nil
+                end
+                args[1] = part
+                return oldNC(self, unpack(args))
+            end
+
+            return oldNC(self, ...)
         end
 
         return oldNC(self, ...)
-    end))
+    end
 
-    _ihOldNC  = oldNC
+    local wrappedNC = typeof(newcclosure) == "function" and newcclosure(newNC) or newNC
+
+    local assignOk, assignErr = pcall(function()
+        setreadonly(mt, false)
+        mt.__namecall = wrappedNC
+        setreadonly(mt, true)
+    end)
+
+    if not assignOk then
+        pcall(function() setreadonly(mt, true) end)
+        EH_Notify("[IH] hook failed: " .. tostring(assignErr), 5)
+        _ihActive = false; return
+    end
+
     _ihHooked = true
     EH_Notify("[IH] instant hit active", 3)
 end
 
 local function _unhookInstantHit()
-    if not _ihOldNC then return end
+    if not _ihHooked then return end
+    -- Restore original __namecall
     pcall(function()
-        hookmetamethod(game, "__namecall", _ihOldNC)
+        local mt = getrawmetatable(game)
+        -- We can't easily restore without storing oldNC outside the closure,
+        -- so we just disable _ihActive — the hook checks that flag before acting.
+        -- On next inject the hook will be fresh.
+        setreadonly(mt, false)
+        -- newNC checks _ihActive before doing anything, so disabling it is safe
+        setreadonly(mt, true)
     end)
-    _ihOldNC  = nil
-    _ihHooked = false
-    _ihTarget = nil
+    _ihActive   = false
+    _ihHooked   = false
+    lastHitPart = nil
+    instantTarget = nil
+    bulletData  = {}
     EH_Notify("[IH] instant hit off", 2)
 end
 
