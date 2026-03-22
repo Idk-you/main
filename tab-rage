@@ -294,10 +294,12 @@ local _saActive     = false
 local _saMode       = "normal"
 local _saFOV        = 150
 local _saPrediction = false
-local _saHooked     = false
-local _saOrigCB     = nil
+local _saHooked     = false   -- CreateBullet hookfunction installed (normal mode)
+local _saNCHooked   = false   -- hookmetamethod installed (perfect mode)
+local _saOrigCB     = nil     -- original CreateBullet
+local _saOldNC      = nil     -- original __namecall
 
--- ── Ballistic helpers — ported directly from petal (f15zp02) ─────────────────
+-- ── Ballistic helpers — ported from petal (f15zp02) ──────────────────────────
 local function _saaSolve(A, B, C)
     local d = B*B - 4*A*C
     if d < 0 then return end
@@ -314,26 +316,23 @@ local function _saaFlight(dir, grav, speed)
     return 0
 end
 
--- Returns predicted world position of a moving part
 local function _saaPredict(part, origin, speed, drop)
     local g = Vector3.yAxis * (drop * 2)
     local t = _saaFlight(part.Position - origin, g, speed)
     return part.Position + part.Velocity * t
 end
 
--- Returns the vertical drop offset vector to compensate for gravity
 local function _saaDrop(origin, target, speed, drop)
     local g = Vector3.yAxis * (drop * 2)
     local t = _saaFlight(target - origin, g, speed)
     return 0.5 * g * t^2
 end
 
--- ── Target finder — mirrors petal's GetTarget() ───────────────────────────────
+-- ── Target finder ─────────────────────────────────────────────────────────────
 local function _saGetTarget()
     local closest, bestDist = nil, _saFOV
     local center = cam.ViewportSize / 2
 
-    -- AI / NPCs
     local az = workspace:FindFirstChild("AiZones")
     if az then
         for _, zone in ipairs(az:GetChildren()) do
@@ -345,10 +344,7 @@ local function _saGetTarget()
                         local pos, onscreen = cam:WorldToViewportPoint(part.Position)
                         if onscreen then
                             local d = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                            if d < bestDist then
-                                bestDist = d
-                                closest  = part
-                            end
+                            if d < bestDist then bestDist = d; closest = part end
                         end
                     end
                 end
@@ -356,7 +352,6 @@ local function _saGetTarget()
         end
     end
 
-    -- Players
     for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
         if plr ~= player and plr.Character then
             local hum  = plr.Character:FindFirstChildOfClass("Humanoid")
@@ -365,10 +360,7 @@ local function _saGetTarget()
                 local pos, onscreen = cam:WorldToViewportPoint(part.Position)
                 if onscreen then
                     local d = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                    if d < bestDist then
-                        bestDist = d
-                        closest  = part
-                    end
+                    if d < bestDist then bestDist = d; closest = part end
                 end
             end
         end
@@ -377,72 +369,221 @@ local function _saGetTarget()
     return closest
 end
 
--- ── _hookNormal — petal's exact hook logic ────────────────────────────────────
---
---  Source: f15zp02__1_.txt lines 2741-2756
---
---  The hook reads aim.Position from the real BasePart BEFORE replacing aim,
---  then passes { CFrame = CFrame.new(aim.Position, predictedPos + dropOffset) }
---  as the new aim argument. That's the entire trick.
---
---  The "nil <= number" errors in console come from other places in CreateBullet
---  that try to call BasePart methods (.Parent, :IsA, etc.) on the fake table.
---  These are caught by the game's own internal pcalls and do NOT stop the bullet
---  from firing — petal's script produces these same errors and still works.
---
+-- ── NORMAL MODE — petal's exact hookfunction logic ────────────────────────────
+-- Source: f15zp02 lines 2741-2756
+-- Reads aim.Position from the real BasePart first, then replaces aim with
+-- { CFrame = CFrame.new(aim.Position, predictedPos + dropOffset) } in the return.
+-- The nil <= number errors in console are expected and do not block the shot.
 local function _hookNormal()
     if _saHooked then return end
-
     if not hookfunction then
-        EH_Notify("[SA] hookfunction not available on this executor", 5)
-        return
+        EH_Notify("[SA] hookfunction unavailable", 5); return
     end
 
     local RS = game:GetService("ReplicatedStorage")
     local ok, BulletModule = pcall(require, RS.Modules.FPS.Bullet)
     if not ok or not BulletModule or not BulletModule.CreateBullet then
-        EH_Notify("[SA] Bullet module unavailable", 5)
-        return
+        EH_Notify("[SA] Bullet module unavailable", 5); return
     end
 
     local OldBullet
     OldBullet = hookfunction(BulletModule.CreateBullet, function(a, b, c, d, aim, e, ammo, tick, recoil)
-        -- Only redirect when SA is active and mode is normal
         if _saActive and _saMode == "normal" and not checkcaller() then
             local target = _saGetTarget()
             if target and aim and aim.Position then
                 local ammoObj = RS.AmmoTypes:FindFirstChild(ammo)
                 if ammoObj then
-                    -- Zero drag so bullet travels straight — petal does this too
                     ammoObj:SetAttribute("Drag", 0)
-
                     local speed = ammoObj:GetAttribute("MuzzleVelocity") or 300
                     local drop  = ammoObj:GetAttribute("ProjectileDrop") or 0
-
-                    -- Predicted position + gravity drop compensation
-                    -- Exactly petal lines 2750-2752:
-                    --   local pos = SilentAim.Prediction and Predict(...) or target.Position
-                    --   local vdrop = Drop(aim.Position, pos, speed, drop)
-                    --   return OldBullet(a,b,c,d,{CFrame = CFrame.new(aim.Position, pos+vdrop)},...)
                     local pos   = _saPrediction
                         and _saaPredict(target, aim.Position, speed, drop)
                         or  target.Position
                     local vdrop = _saaDrop(aim.Position, pos, speed, drop)
-
                     return OldBullet(a, b, c, d,
                         { CFrame = CFrame.new(aim.Position, pos + vdrop) },
                         e, ammo, tick, recoil)
                 end
             end
         end
-
-        -- No target or SA off — fire normally
         return OldBullet(a, b, c, d, aim, e, ammo, tick, recoil)
     end)
 
     _saOrigCB = OldBullet
     _saHooked = true
-    EH_Notify("[SA] silent aim active", 3)
+    EH_Notify("[SA] normal mode active", 3)
+end
+
+-- ── PERFECT MODE — instant hit via __namecall hook ────────────────────────────
+--
+--  Three intercepted calls, all via hookmetamethod:
+--
+--  1. workspace:Raycast (from FPS.Bullet's RenderStepped loop, decompiled lines 313-325)
+--     The bullet sim calls Raycast every frame to trace its path. We return a fake
+--     RaycastResult table pointing directly at the target — instant hit through walls.
+--     The fake table needs exactly: Instance, Position, Normal, Material.
+--
+--  2. ProjectileInflict:FireServer (decompiled line 417)
+--     After the fake Raycast hit, the game fires FireServer(hitPart, hitPosOffset, bulletId, tick).
+--     args[4] = tick() — the server validates this against expected travel time.
+--     We add distance/speed to the original tick so the server sees a believable
+--     travel duration and does not reject the hit as an impossible teleport shot.
+--
+--  3. :GetAttribute("ProjectileDrop") and :GetAttribute("Drag") — return 0
+--     Removes bullet gravity and drag from the simulation, making the fake
+--     trajectory perfectly straight so the hit position math is consistent.
+--
+local function _hookPerfect()
+    if _saNCHooked then return end
+    if not hookmetamethod then
+        EH_Notify("[SA] hookmetamethod unavailable on this executor", 5); return
+    end
+
+    local RS            = game:GetService("ReplicatedStorage")
+    local _perfTarget   = nil  -- target locked this bullet frame, shared between
+                               -- the Raycast intercept and FireServer intercept
+
+    -- Helper: look up muzzle velocity for the currently held weapon
+    local function _getSpeed()
+        local speed = 300
+        pcall(function()
+            local holding = player.Character:FindFirstChild("Holding")
+            local wep     = holding and holding.Value
+            local ammoType = wep and wep:GetAttribute("AmmoType")
+            if ammoType then
+                local ammoObj = RS.AmmoTypes:FindFirstChild(ammoType)
+                if ammoObj then
+                    speed = ammoObj:GetAttribute("MuzzleVelocity") or speed
+                end
+            end
+        end)
+        return speed
+    end
+
+    -- Helper: verify this call originates from inside FPS.Bullet's simulation loop.
+    -- Based on Jiggy's check: getinfo(3).short_src == "ReplicatedStorage.Modules.FPS.Bullet"
+    -- We check levels 2-4 to be safe across different executor callstack depths.
+    local function _fromBulletSim()
+        local found = false
+        pcall(function()
+            for lvl = 2, 4 do
+                local info = debug.getinfo(lvl, "S")
+                if not info or not info.short_src then break end
+                local src = info.short_src
+                if src:find("FPS") or src:find("Bullet") then
+                    found = true; break
+                end
+            end
+        end)
+        return found
+    end
+
+    local oldNC
+    oldNC = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        if checkcaller() then return oldNC(self, ...) end
+
+        local method = getnamecallmethod()
+        local args   = { ... }
+
+        -- ── Part 3: GetAttribute — zero drop and drag ─────────────────────────
+        -- Only for ammo objects (parent is AmmoTypes folder) and only in perfect
+        -- mode. Makes the bullet path perfectly straight so hit position is valid.
+        if method == "GetAttribute"
+            and _saActive
+            and _saMode == "perfect"
+        then
+            local attr = args[1]
+            if attr == "ProjectileDrop" or attr == "Drag" then
+                -- Confirm self is an AmmoType folder
+                local parentOk = false
+                pcall(function()
+                    parentOk = self.Parent and self.Parent.Name == "AmmoTypes"
+                end)
+                if parentOk then return 0 end
+            end
+        end
+
+        -- ── Part 1: workspace:Raycast — fake instant hit ──────────────────────
+        -- FPS.Bullet RenderStepped loop (decompiled line 313):
+        --   local v137 = workspace:Raycast(v_u_116, Unit * v136, v_u_111)
+        --   if v137 then
+        --       Instance = v137.Instance    ← must exist
+        --       v141     = v137.Position    ← world hit position
+        --       Normal   = v137.Normal      ← surface normal
+        --       Material = v137.Material    ← surface material
+        --   end
+        -- We return a fake table with those four fields pointing at the target.
+        if method == "Raycast"
+            and self == workspace
+            and _saActive
+            and _saMode == "perfect"
+        then
+            if _fromBulletSim() then
+                local target = _saGetTarget()
+                if target then
+                    _perfTarget = target
+                    local origin = args[1]  -- v_u_116 (estimated cam position)
+                    local normal = Vector3.new(0, 1, 0)
+                    pcall(function()
+                        if typeof(origin) == "Vector3" then
+                            normal = (origin - target.Position).Unit
+                        end
+                    end)
+                    -- Fake RaycastResult — the bullet module only reads these four fields
+                    return {
+                        Instance = target,
+                        Position = target.Position,
+                        Normal   = normal,
+                        Material = Enum.Material.SmoothPlastic,
+                    }
+                end
+            end
+        end
+
+        -- ── Part 2: ProjectileInflict:FireServer — tick correction ─────────────
+        -- Decompiled line 417:
+        --   ProjectileInflict:FireServer(Instance, v170, v_u_109, tick())
+        --   args[1] = hitPart (Instance)
+        --   args[2] = hitPosOffset (CFrame in object space)
+        --   args[3] = bulletId (v_u_109)
+        --   args[4] = tick() timestamp  ← server validates this against travel time
+        --
+        -- We add (distance / speed) to the original tick so the server sees a
+        -- realistic travel time and accepts the hit.
+        if method == "FireServer"
+            and self.Name == "ProjectileInflict"
+            and _saActive
+            and _saMode == "perfect"
+        then
+            if _perfTarget then
+                pcall(function()
+                    local originalTick = args[4]
+                    if type(originalTick) ~= "number" then return end
+                    local dist       = (_perfTarget.Position - cam.CFrame.Position).Magnitude
+                    local travelTime = dist / _getSpeed()
+                    args[4] = originalTick + travelTime
+                end)
+                _perfTarget = nil  -- consumed, clear for next shot
+                return oldNC(self, unpack(args))
+            end
+        end
+
+        return oldNC(self, ...)
+    end))
+
+    _saOldNC    = oldNC
+    _saNCHooked = true
+    EH_Notify("[SA] perfect mode active", 3)
+end
+
+-- ── Unhook perfect (restores namecall, safe to call even if not hooked) ───────
+local function _unhookPerfect()
+    if not _saOldNC then return end
+    pcall(function()
+        hookmetamethod(game, "__namecall", _saOldNC)
+    end)
+    _saOldNC    = nil
+    _saNCHooked = false
 end
 
 -- ── FOV Circle ────────────────────────────────────────────────────────────────
@@ -473,6 +614,8 @@ SASection:Toggle({Title = "enabled", Flag = "SAEnabled", Default = false, Callba
     if s then
         if _saMode == "normal" then _hookNormal()
         else _hookPerfect() end
+    else
+        _unhookPerfect()
     end
 end})
 
@@ -480,8 +623,14 @@ SASection:Dropdown({Title = "mode", Flag = "SAMode",
     List = {"normal", "perfect"}, Default = "normal",
     Callback = function(v)
         _saMode = v
-        if _saActive and v == "normal" then _hookNormal()
-        elseif _saActive then _hookPerfect() end
+        if _saActive then
+            if v == "perfect" then
+                _hookPerfect()
+            else
+                _unhookPerfect()
+                _hookNormal()
+            end
+        end
     end
 })
 
