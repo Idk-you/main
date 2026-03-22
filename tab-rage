@@ -294,244 +294,166 @@ local _saActive     = false
 local _saMode       = "normal"
 local _saFOV        = 150
 local _saPrediction = false
-local _saTargetPart = nil   -- current locked BasePart (Head / HRP)
-local _saHooked     = false -- CreateBullet hook installed
-local _saNCHooked   = false -- hookmetamethod installed
-local _saOrigCB     = nil   -- original CreateBullet (hookfunction return)
-local _saOldNC      = nil   -- original __namecall  (hookmetamethod return)
+local _saHooked     = false
+local _saOrigCB     = nil
 
--- ── Target finder — mirrors Jiggy's get_target() ─────────────────────────────
-local function _saFindTarget()
-    local bestPart, bestDist = nil, math.huge
-    local cx = cam.ViewportSize.X / 2
-    local cy = cam.ViewportSize.Y / 2
+-- ── Ballistic helpers — ported directly from petal (f15zp02) ─────────────────
+local function _saaSolve(A, B, C)
+    local d = B*B - 4*A*C
+    if d < 0 then return end
+    local s = math.sqrt(d)
+    return (-B - s)/(2*A), (-B + s)/(2*A)
+end
 
-    local function check(char)
-        if not char then return end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then return end
-        local part = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
-        if not part then return end
-        local sp, vis, z = cam:WorldToViewportPoint(part.Position)
-        if not vis or z <= 0 then return end
-        local d = math.sqrt((sp.X - cx)^2 + (sp.Y - cy)^2)
-        if d < _saFOV and d < bestDist then bestDist = d; bestPart = part end
+local function _saaFlight(dir, grav, speed)
+    local r1, r2 = _saaSolve(grav:Dot(grav)/4, grav:Dot(dir) - speed^2, dir:Dot(dir))
+    if r1 and r2 then
+        local t = math.min(r1, r2)
+        if t > 0 then return math.sqrt(t) end
     end
+    return 0
+end
 
-    for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
-        if p ~= player then check(p.Character) end
-    end
+-- Returns predicted world position of a moving part
+local function _saaPredict(part, origin, speed, drop)
+    local g = Vector3.yAxis * (drop * 2)
+    local t = _saaFlight(part.Position - origin, g, speed)
+    return part.Position + part.Velocity * t
+end
+
+-- Returns the vertical drop offset vector to compensate for gravity
+local function _saaDrop(origin, target, speed, drop)
+    local g = Vector3.yAxis * (drop * 2)
+    local t = _saaFlight(target - origin, g, speed)
+    return 0.5 * g * t^2
+end
+
+-- ── Target finder — mirrors petal's GetTarget() ───────────────────────────────
+local function _saGetTarget()
+    local closest, bestDist = nil, _saFOV
+    local center = cam.ViewportSize / 2
+
+    -- AI / NPCs
     local az = workspace:FindFirstChild("AiZones")
     if az then
         for _, zone in ipairs(az:GetChildren()) do
-            for _, npc in ipairs(zone:GetChildren()) do
-                if npc:IsA("Model") then check(npc) end
+            for _, char in ipairs(zone:GetChildren()) do
+                if char:IsA("Model") then
+                    local part = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+                    local hum  = char:FindFirstChildOfClass("Humanoid")
+                    if part and hum and hum.Health > 0 then
+                        local pos, onscreen = cam:WorldToViewportPoint(part.Position)
+                        if onscreen then
+                            local d = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                            if d < bestDist then
+                                bestDist = d
+                                closest  = part
+                            end
+                        end
+                    end
+                end
             end
         end
     end
-    return bestPart
+
+    -- Players
+    for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local hum  = plr.Character:FindFirstChildOfClass("Humanoid")
+            local part = plr.Character:FindFirstChild("Head") or plr.Character:FindFirstChild("HumanoidRootPart")
+            if part and hum and hum.Health > 0 then
+                local pos, onscreen = cam:WorldToViewportPoint(part.Position)
+                if onscreen then
+                    local d = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                    if d < bestDist then
+                        bestDist = d
+                        closest  = part
+                    end
+                end
+            end
+        end
+    end
+
+    return closest
 end
 
--- ── _hookNormal ───────────────────────────────────────────────────────────────
+-- ── _hookNormal — petal's exact hook logic ────────────────────────────────────
 --
---  Ported directly from Jiggy's working implementation.
+--  Source: f15zp02__1_.txt lines 2741-2756
 --
---  Two hooks:
+--  The hook reads aim.Position from the real BasePart BEFORE replacing aim,
+--  then passes { CFrame = CFrame.new(aim.Position, predictedPos + dropOffset) }
+--  as the new aim argument. That's the entire trick.
 --
---  1. hookmetamethod(__namecall) — intercepts workspace:Raycast calls that come
---     from FPS.Bullet's RenderStepped simulation loop and redirects the ray
---     direction toward _saTargetPart. This is Jiggy's "instant_hit" Raycast
---     block. Uses hookmetamethod (NOT getrawmetatable+setreadonly — that approach
---     silently fails on most executors and breaks ALL method calls, which is why
---     previous versions caused the gun to stop firing entirely).
---
---  2. hookfunction(CreateBullet) — replaces args[5] (p52 / AimPartCanted) with
---     a Lua table { CFrame = CFrame.new(camPos, targetPos) } so the initial
---     bullet direction on the server points at the target. This is Jiggy's
---     "manipulation" block. The nil <= number errors are expected — they are
---     generated by game code that tries to call BasePart methods on the fake
---     table, but they are caught by the game's own pcall wrappers and do NOT
---     prevent the bullet from firing.
+--  The "nil <= number" errors in console come from other places in CreateBullet
+--  that try to call BasePart methods (.Parent, :IsA, etc.) on the fake table.
+--  These are caught by the game's own internal pcalls and do NOT stop the bullet
+--  from firing — petal's script produces these same errors and still works.
 --
 local function _hookNormal()
-    if _saHooked and _saNCHooked then return end
+    if _saHooked then return end
 
-    if not hookfunction or not newcclosure then
-        EH_Notify("[SA] hookfunction unavailable on this executor", 5)
+    if not hookfunction then
+        EH_Notify("[SA] hookfunction not available on this executor", 5)
         return
     end
 
-    -- ── 1. hookmetamethod — Raycast redirect (Jiggy's "instant_hit" block) ───
-    -- Must be installed FIRST so it's active when the CreateBullet simulation
-    -- starts calling workspace:Raycast.
-    if not _saNCHooked then
-        if not hookmetamethod then
-            EH_Notify("[SA] hookmetamethod unavailable — Raycast redirect disabled", 3)
-        else
-            local function ncCallback(self, ...)
-                -- Always let our own executor calls through untouched
-                if checkcaller() then
-                    return _saOldNC(self, ...)
-                end
-
-                local method = getnamecallmethod()
-                local args   = { ... }
-
-                -- Raycast redirect — mirrors Jiggy's instant_hit Raycast block exactly.
-                -- getinfo(3) is the caller of the method; for the bullet sim loop it
-                -- is always inside FPS.Bullet.
-                if method == "Raycast"
-                    and _saActive
-                    and _saMode == "normal"
-                    and _saTargetPart
-                then
-                    local fromBullet = false
-                    pcall(function()
-                        local info = debug.getinfo(3, "S")
-                        if info and info.short_src then
-                            local src = info.short_src
-                            -- Match the full path Jiggy checks:
-                            -- "ReplicatedStorage.Modules.FPS.Bullet"
-                            if src:find("FPS") or src:find("Bullet") then
-                                fromBullet = true
-                            end
-                        end
-                    end)
-                    if fromBullet then
-                        -- Jiggy: args[2] = (target.Position - args[1]).Unit * 9e16
-                        args[2] = (_saTargetPart.Position - args[1]).Unit * 9e16
-                        return _saOldNC(self, unpack(args))
-                    end
-                end
-
-                return _saOldNC(self, ...)
-            end
-
-            -- hookmetamethod returns the original __namecall — safe on all executors
-            _saOldNC    = hookmetamethod(game, "__namecall", newcclosure(ncCallback))
-            _saNCHooked = true
-        end
+    local RS = game:GetService("ReplicatedStorage")
+    local ok, BulletModule = pcall(require, RS.Modules.FPS.Bullet)
+    if not ok or not BulletModule or not BulletModule.CreateBullet then
+        EH_Notify("[SA] Bullet module unavailable", 5)
+        return
     end
 
-    -- ── 2. hookfunction — CreateBullet args[5] redirect (Jiggy's main block) ─
-    if not _saHooked then
-        task.wait(math.random(5, 15) / 100)
+    local OldBullet
+    OldBullet = hookfunction(BulletModule.CreateBullet, function(a, b, c, d, aim, e, ammo, tick, recoil)
+        -- Only redirect when SA is active and mode is normal
+        if _saActive and _saMode == "normal" and not checkcaller() then
+            local target = _saGetTarget()
+            if target and aim and aim.Position then
+                local ammoObj = RS.AmmoTypes:FindFirstChild(ammo)
+                if ammoObj then
+                    -- Zero drag so bullet travels straight — petal does this too
+                    ammoObj:SetAttribute("Drag", 0)
 
-        local RS = game:GetService("ReplicatedStorage")
-        local ok, BM = pcall(require, RS.Modules.FPS.Bullet)
-        if not ok or not BM or not BM.CreateBullet then
-            EH_Notify("[SA] Bullet module unavailable", 5); return
-        end
-        if typeof(BM.CreateBullet) ~= "function" then
-            EH_Notify("[SA] CreateBullet not a function", 5); return
-        end
+                    local speed = ammoObj:GetAttribute("MuzzleVelocity") or 300
+                    local drop  = ammoObj:GetAttribute("ProjectileDrop") or 0
 
-        -- Declare hook variable upfront so the callback can reference it.
-        -- Mirrors Jiggy's pattern: local silent_aim_hook; silent_aim_hook = hookfunction(...)
-        local saHook
-        local function bulletCallback(...)
-            local args = { ... }
+                    -- Predicted position + gravity drop compensation
+                    -- Exactly petal lines 2750-2752:
+                    --   local pos = SilentAim.Prediction and Predict(...) or target.Position
+                    --   local vdrop = Drop(aim.Position, pos, speed, drop)
+                    --   return OldBullet(a,b,c,d,{CFrame = CFrame.new(aim.Position, pos+vdrop)},...)
+                    local pos   = _saPrediction
+                        and _saaPredict(target, aim.Position, speed, drop)
+                        or  target.Position
+                    local vdrop = _saaDrop(aim.Position, pos, speed, drop)
 
-            -- Signature: CreateBullet(_, p49, p50, p_u_51, p52, _, p53, _, p54)
-            -- args[5] = p52 = AimPartCanted (the aim BasePart)
-            -- args[7] = p53 = ammo name string
-            -- args[9] = p54 = recoil shot count
-            --
-            -- Guard: special weapons (grenades, launchers, melee) pass nil for
-            -- some args. Let them through completely unchanged.
-            if args[5] == nil or args[7] == nil or args[9] == nil then
-                return saHook(unpack(args))
-            end
-
-            if _saActive and _saMode == "normal" then
-                local target = _saFindTarget()
-                if target then
-                    _saTargetPart = target
-
-                    -- Build final aim position with optional velocity prediction
-                    local targetPos = target.Position
-                    if _saPrediction then
-                        pcall(function()
-                            local ammoObj = RS.AmmoTypes:FindFirstChild(args[7])
-                            if not ammoObj then return end
-                            local speed = ammoObj:GetAttribute("MuzzleVelocity")
-                            if not speed or speed <= 0 then return end
-                            local hrp = target.Parent
-                                    and target.Parent:FindFirstChild("HumanoidRootPart")
-                            if not hrp then return end
-                            local vel  = hrp.AssemblyLinearVelocity
-                            local dist = (target.Position - cam.CFrame.Position).Magnitude
-                            local tof  = dist / speed
-                            targetPos  = Vector3.new(
-                                target.Position.X + vel.X * tof,
-                                target.Position.Y,
-                                target.Position.Z + vel.Z * tof
-                            )
-                        end)
-                    end
-
-                    -- Replace args[5] (AimPartCanted / p52) with a CFrame-compatible
-                    -- table pointing from camera position toward target.
-                    -- Jiggy: args[5] = { CFrame = CFrame.new(CurrentCamera.CFrame.Position, target.Position) }
-                    -- The game reads p52.CFrame.LookVector for bullet direction.
-                    -- nil <= number errors from other p52 property accesses are caught
-                    -- by the game's own pcall and do not block the shot.
-                    args[5] = { CFrame = CFrame.new(cam.CFrame.Position, targetPos) }
-                else
-                    _saTargetPart = nil
+                    return OldBullet(a, b, c, d,
+                        { CFrame = CFrame.new(aim.Position, pos + vdrop) },
+                        e, ammo, tick, recoil)
                 end
-            else
-                _saTargetPart = nil
             end
-
-            -- Call original via saHook (hookfunction return value = original).
-            -- Jiggy: return silent_aim_hook(unpack(args))
-            return saHook(unpack(args))
         end
 
-        local hookOk, hookErr = pcall(function()
-            saHook = hookfunction(BM.CreateBullet, newcclosure(bulletCallback))
-        end)
-        if not hookOk or not saHook then
-            EH_Notify("[SA] hook failed: " .. tostring(hookErr), 5); return
-        end
+        -- No target or SA off — fire normally
+        return OldBullet(a, b, c, d, aim, e, ammo, tick, recoil)
+    end)
 
-        _saOrigCB = saHook
-        _saHooked = true
-    end
-
+    _saOrigCB = OldBullet
+    _saHooked = true
     EH_Notify("[SA] silent aim active", 3)
 end
 
--- ── Unhook (used when switching modes or disabling) ───────────────────────────
-local function _unhookNormal()
-    -- Unhook namecall
-    if _saOldNC and hookmetamethod then
-        pcall(function()
-            hookmetamethod(game, "__namecall", _saOldNC)
-        end)
-        _saOldNC    = nil
-        _saNCHooked = false
-    end
-    -- Note: hookfunction cannot be undone cleanly at runtime without the original
-    -- reference. _saHooked stays true across sessions to prevent double-hooking.
-    _saTargetPart = nil
-end
-
-local function _unhookPerfect()
-    -- placeholder — _hookPerfect defined elsewhere in the codebase
-    _saTargetPart = nil
-end
-
 -- ── FOV Circle ────────────────────────────────────────────────────────────────
-_saFovCircle             = Drawing.new("Circle")
-_saFovCircle.NumSides    = 64
-_saFovCircle.Thickness   = 1.5
-_saFovCircle.Color       = Color3.fromRGB(255, 155, 205)
+_saFovCircle              = Drawing.new("Circle")
+_saFovCircle.NumSides     = 64
+_saFovCircle.Thickness    = 1.5
+_saFovCircle.Color        = Color3.fromRGB(255, 155, 205)
 _saFovCircle.Transparency = 0.6
-_saFovCircle.Filled      = false
-_saFovCircle.Visible     = false
-_saFovCircle.Radius      = 150
+_saFovCircle.Filled       = false
+_saFovCircle.Visible      = false
+_saFovCircle.Radius       = 150
 
 game:GetService("RunService").RenderStepped:Connect(function()
     if _saFovCircle then
@@ -551,10 +473,6 @@ SASection:Toggle({Title = "enabled", Flag = "SAEnabled", Default = false, Callba
     if s then
         if _saMode == "normal" then _hookNormal()
         else _hookPerfect() end
-    else
-        _saTargetPart = nil
-        if _saMode == "normal" then _unhookNormal()
-        else _unhookPerfect() end
     end
 end})
 
@@ -562,13 +480,8 @@ SASection:Dropdown({Title = "mode", Flag = "SAMode",
     List = {"normal", "perfect"}, Default = "normal",
     Callback = function(v)
         _saMode = v
-        if _saActive then
-            if v == "perfect" then
-                _unhookNormal(); _hookPerfect()
-            else
-                _unhookPerfect(); _hookNormal()
-            end
-        end
+        if _saActive and v == "normal" then _hookNormal()
+        elseif _saActive then _hookPerfect() end
     end
 })
 
