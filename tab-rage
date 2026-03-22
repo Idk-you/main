@@ -513,7 +513,33 @@ end})
 
 SASection:Slider({Title = "fov radius", Flag = "SAFov", Symbol = "px", Default = 150, Min = 10, Max = 500, Decimals = 0, Callback = function(v)
     _saFOV = v
+    if _saFovCircle then _saFovCircle.Radius = v end
 end})
+
+SASection:Toggle({Title = "show fov circle", Flag = "SAShowFov", Default = false, Callback = function(s)
+    if _saFovCircle then _saFovCircle.Visible = s and _saActive end
+end})
+
+-- FOV circle drawing
+_saFovCircle = Drawing.new("Circle")
+_saFovCircle.NumSides     = 64
+_saFovCircle.Thickness    = 1.5
+_saFovCircle.Color        = Color3.fromRGB(255, 155, 205)
+_saFovCircle.Transparency = 0.6
+_saFovCircle.Filled       = false
+_saFovCircle.Visible      = false
+_saFovCircle.Radius       = 150
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if not _saFovCircle then return end
+    local showFov = Library.Flags["SAShowFov"] and _saActive
+    _saFovCircle.Visible  = showFov or false
+    if showFov then
+        local vp = workspace.CurrentCamera.ViewportSize
+        _saFovCircle.Position = Vector2.new(vp.X / 2, vp.Y / 2)
+        _saFovCircle.Radius   = _saFOV
+    end
+end)
 
 
 local AntiAimSection = RageTab:Section("anti aim", "Right")
