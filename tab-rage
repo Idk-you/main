@@ -395,7 +395,7 @@ local function _hookNormal()
             EH_Notify("[SA] CreateBullet not found", 5); return
         end
         _saOrigCB = hookfunction(origCreate, newcclosure(function(...)
-            local args = {...}
+            local args = table.pack(...)  -- preserves nil args and exact count
             -- arg5 (aim) = table with .CFrame per spec
             if _saActive and _saMode == "normal" then
                 local target = _saFindTarget()
@@ -404,10 +404,9 @@ local function _hookNormal()
                     _saLockTarget = target
                     local pos = _saPredict(target)
                     aim.CFrame = CFrame.new(aim.CFrame.Position, pos)
-                    args[5] = aim
                 end
             end
-            return _saOrigCB(table.unpack(args))
+            return _saOrigCB(table.unpack(args, 1, args.n))
         end))
         _saHooked = true
         EH_Notify("[SA] normal silent hooked", 3)
