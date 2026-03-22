@@ -174,7 +174,6 @@ end})
 do
     local _swayEnabled = false
     local _swayPatched = false
-
     local function _patchSway()
         if _swayPatched then return end
         pcall(function()
@@ -196,7 +195,6 @@ do
             end
         end)
     end
-
     WeapSection:Toggle({Title = "no sway", Flag = "WepNoSway", Default = false, Callback = function(s)
         _swayEnabled = s
         if s then task.spawn(_patchSway) end
@@ -209,7 +207,6 @@ do
     local _fmModules = {}
     local _fmOriginals = {}
     local _fmCached = false
-
     local function _fmCache()
         table.clear(_fmModules); table.clear(_fmOriginals); _fmCached = false
         local items = ReplicatedStorage:FindFirstChild("ItemsList")
@@ -229,7 +226,6 @@ do
         end
         _fmCached = true
     end
-
     WeapSection:Toggle({Title = "unlock firemodes", Flag = "WepUnlockFiremodes", Default = false, Callback = function(s)
         _fmEnabled = s
         if s then
@@ -254,7 +250,6 @@ do
     local _rpmInterval = 0.05
     local _rpmModules = {}
     local _rpmOrig = {}
-
     local function _rpmCache()
         table.clear(_rpmModules); table.clear(_rpmOrig)
         local items = ReplicatedStorage:FindFirstChild("ItemsList")
@@ -269,19 +264,16 @@ do
             end
         end
     end
-
     local function _rpmApply()
         for _, mod in ipairs(_rpmModules) do
             pcall(function() mod.FireRate = _rpmInterval end)
         end
     end
-
     local function _rpmRestore()
         for mod, rate in pairs(_rpmOrig) do
             pcall(function() mod.FireRate = rate end)
         end
     end
-
     WeapSection:Toggle({Title = "rpm booster", Flag = "WepRPMBoost", Default = false, Callback = function(s)
         _rpmEnabled = s
         if s then task.spawn(function() _rpmCache(); _rpmApply() end)
@@ -298,15 +290,15 @@ end
 local SASection = RageTab:Section("silent aim", "Right")
 
 -- ── State ─────────────────────────────────────────────────────────────────────
-local _saActive      = false
-local _saMode        = "normal"
-local _saFOV         = 150
-local _saPrediction  = false
-local _saLockTarget  = nil
-local _saHooked      = false
-local _saNCHooked    = false
-local _saOrigCB      = nil
-local _saOldNC       = nil
+local _saActive     = false
+local _saMode       = "normal"
+local _saFOV        = 150
+local _saPrediction = false
+local _saLockTarget = nil   -- {Part, AdjustedPos} set by CreateBullet hook each shot
+local _saHooked     = false -- CreateBullet hook installed
+local _saNCHooked   = false -- __namecall hook installed
+local _saOrigCB     = nil   -- original CreateBullet
+local _saOldNC      = nil   -- original __namecall
 
 -- ── Target finder ─────────────────────────────────────────────────────────────
 local function _saFindTarget()
@@ -340,148 +332,168 @@ local function _saFindTarget()
     return bestPart
 end
 
--- ── Normal silent aim hook ────────────────────────────────────────────────────
+-- ── Normal silent aim ─────────────────────────────────────────────────────────
 --
---  Signature: CreateBullet(_, p49, p50, p_u_51, p52, _, p53, _, p54)
---    arg5 = p52 = AimPartCanted — a real BasePart
---    bullet direction on server = p52.CFrame.LookVector
+--  Why previous versions caused "nil <= number" crashes:
+--    - Replacing p52 with { CFrame=... } (fake table): server code reads
+--      .CFrame as a BasePart property → nil on non-existent fields → crash.
+--    - Setting p52.CFrame directly (real BasePart mutation): AimPartCanted is
+--      welded to the gun. Forcing its CFrame breaks the weld constraint in the
+--      physics step, leaving downstream position/direction reads nil → same crash.
 --
---  WHY reference scripts get detected:
---    Both brzz_hook and Jiggy pass { CFrame = CFrame.new(...) } — a plain Lua
---    table — as arg5. The server code tries to read .CFrame as a BasePart
---    property and runs numeric comparisons on LookVector components. A fake
---    table returns nil for those, causing "nil <= number" errors that the AC
---    treats as a tamper signal.
+--  This version's approach:
+--    1. CreateBullet hook — passes all args through COMPLETELY UNCHANGED.
+--       Only job: find target, store it. No p52 modification whatsoever.
+--    2. __namecall hook — intercepts workspace:Raycast calls that come from
+--       the FPS.Bullet RenderStepped simulation loop and redirects the direction
+--       vector toward the stored target. The bullet naturally "hits" the target,
+--       and the game's own code calls ProjectileInflict:FireServer.
 --
---  THE FIX:
---    Mutate p52.CFrame directly on the real BasePart, pass the same object,
---    then restore with task.defer after the call unwinds. The server sees a
---    valid BasePart with a redirected LookVector the whole time.
+--  This means:
+--    - CreateBullet sees a valid, unmodified p52 → no nil errors → gun fires
+--      normally (sound, animation, ammo deduction all work correctly)
+--    - The Raycast redirect is transparent to the server — it just looks like
+--      the player aimed at the target
 --
 local function _hookNormal()
-    if _saHooked then return end
+    if _saHooked and _saNCHooked then return end
+
     if not hookfunction or not newcclosure then
-        EH_Notify("[SA] hookfunction not available on this executor", 5)
+        EH_Notify("[SA] hookfunction unavailable on this executor", 5)
         return
     end
 
-    -- Small jitter so every execution doesn't hook at the exact same timestamp
-    task.wait(math.random(5, 15) / 100)
+    -- ── CreateBullet hook ─────────────────────────────────────────────────────
+    if not _saHooked then
+        task.wait(math.random(5, 15) / 100)
 
-    local RS = game:GetService("ReplicatedStorage")
-    local ok, BM = pcall(require, RS.Modules.FPS.Bullet)
-    if not ok or not BM or not BM.CreateBullet then
-        EH_Notify("[SA] Bullet module failed to load", 5)
-        return
-    end
-    if typeof(BM.CreateBullet) ~= "function" then
-        EH_Notify("[SA] CreateBullet not a function — AC may have patched it", 5)
-        return
-    end
+        local RS = game:GetService("ReplicatedStorage")
+        local ok, BM = pcall(require, RS.Modules.FPS.Bullet)
+        if not ok or not BM or not BM.CreateBullet then
+            EH_Notify("[SA] Bullet module unavailable", 5); return
+        end
+        if typeof(BM.CreateBullet) ~= "function" then
+            EH_Notify("[SA] CreateBullet not a function", 5); return
+        end
 
-    local function bulletCallback(a, b, c, d, aim, e, ammo, t, recoil)
-        -- Guard: special weapons (grenades, launchers, melee) pass nil for some
-        -- args. Pass them through completely untouched so they fire normally.
-        if aim == nil or t == nil or recoil == nil then
+        local function bulletCallback(a, b, c, d, aim, e, ammo, t, recoil)
+            -- Special/nil-arg weapons pass through untouched
+            if aim == nil or t == nil or recoil == nil then
+                return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
+            end
+
+            -- Update the lock target every shot if SA is active
+            if _saActive and _saMode == "normal" then
+                local target = _saFindTarget()
+                if target then
+                    local finalPos = target.Position
+                    -- Optional velocity prediction
+                    if _saPrediction then
+                        pcall(function()
+                            local RS2 = game:GetService("ReplicatedStorage")
+                            local ammoObj = RS2.AmmoTypes:FindFirstChild(ammo)
+                            if not ammoObj then return end
+                            local speed = ammoObj:GetAttribute("MuzzleVelocity")
+                            if not speed then return end
+                            local hrp = target.Parent and target.Parent:FindFirstChild("HumanoidRootPart")
+                            if not hrp then return end
+                            local vel = hrp.AssemblyLinearVelocity
+                            local dist = (target.Position - cam.CFrame.Position).Magnitude
+                            local tof  = dist / speed
+                            finalPos = Vector3.new(
+                                target.Position.X + vel.X * tof,
+                                target.Position.Y,
+                                target.Position.Z + vel.Z * tof
+                            )
+                        end)
+                    end
+                    _saLockTarget = { Part = target, AdjustedPos = finalPos }
+                else
+                    _saLockTarget = nil
+                end
+            else
+                _saLockTarget = nil
+            end
+
+            -- Pass ALL args through UNCHANGED — zero p52 modification
             return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
         end
 
-        -- SA is toggled off — normal shot
-        if not (_saActive and _saMode == "normal") then
-            return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
-        end
-
-        -- p52 must be a real BasePart — if something changed, bail
-        if typeof(aim) ~= "Instance" or not aim:IsA("BasePart") then
-            return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
-        end
-
-        -- Snapshot the original CFrame before we touch anything
-        local origCF
-        pcall(function() origCF = aim.CFrame end)
-        if not origCF then
-            return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
-        end
-
-        -- Find the closest enemy inside our FOV circle
-        local target = _saFindTarget()
-        if not target then
-            return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
-        end
-        _saLockTarget = target
-
-        -- Build destination position (with optional ballistic prediction)
-        local aimPos  = origCF.Position
-        local finalPos = target.Position
-
-        if _saPrediction then
-            pcall(function()
-                local ammoObj = RS.AmmoTypes:FindFirstChild(ammo)
-                if not ammoObj then return end
-                local speed = ammoObj:GetAttribute("MuzzleVelocity")
-                local drop  = ammoObj:GetAttribute("ProjectileDrop")
-                if not speed or not drop then return end
-                local hrp = target.Parent and target.Parent:FindFirstChild("HumanoidRootPart")
-                if not hrp then return end
-                local vel  = hrp.AssemblyLinearVelocity
-                local dist = (target.Position - aimPos).Magnitude
-                local tof  = dist / speed
-                finalPos = Vector3.new(
-                    target.Position.X + vel.X * tof,
-                    target.Position.Y,             -- keep vertical as-is (drop handled server-side)
-                    target.Position.Z + vel.Z * tof
-                )
-            end)
-        end
-
-        -- ── THE KEY FIX ──────────────────────────────────────────────────────
-        -- Set the CFrame directly on the real BasePart (AimPartCanted).
-        -- Do NOT replace aim with { CFrame = ... } — that's a Lua table, and
-        -- the server reads .CFrame.LookVector as a BasePart property with
-        -- numeric comparisons. A fake table causes nil arithmetic → AC flag.
-        local redirected = false
-        pcall(function()
-            aim.CFrame = CFrame.new(aimPos, finalPos)
-            redirected = true
+        local hookOk, hookErr = pcall(function()
+            _saOrigCB = hookfunction(BM.CreateBullet, newcclosure(bulletCallback))
         end)
-
-        if not redirected then
-            -- CFrame write failed (e.g., part locked by engine mid-frame)
-            return _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
+        if not hookOk or not _saOrigCB then
+            EH_Notify("[SA] hook failed: " .. tostring(hookErr), 5); return
         end
+        _saHooked = true
+    end
 
-        -- Call the real CreateBullet with the exact same BasePart object.
-        -- The server receives a valid BasePart the whole time — indistinguishable
-        -- from a normal shot. Only the LookVector is different.
-        local r1, r2, r3, r4 = _saOrigCB(a, b, c, d, aim, e, ammo, t, recoil)
+    -- ── __namecall Raycast hook ───────────────────────────────────────────────
+    -- FPS.Bullet's simulation loop calls workspace:Raycast(origin, dir, params)
+    -- every RenderStepped frame. We intercept those and redirect dir → target.
+    -- Source check via debug.getinfo keeps us from intercepting unrelated Raycasts
+    -- (wall checks, enemy visibility, NPC pathing, etc.).
+    if not _saNCHooked then
+        local _getinfoAvail = pcall(function() debug.getinfo(1, "S") end)
 
-        -- Restore the original CFrame after the call fully unwinds.
-        -- task.defer fires on the next Heartbeat step, after all synchronous
-        -- game code in this frame (including the bullet module internals) is done.
-        task.defer(function()
+        local function _fromBulletSim()
+            if not _getinfoAvail then
+                -- No getinfo: only redirect if _saLockTarget was just set this shot
+                return _saLockTarget ~= nil
+            end
+            local found = false
             pcall(function()
-                if aim and aim.Parent then
-                    aim.CFrame = origCF
+                -- Walk up the callstack looking for FPS.Bullet as the source
+                for lvl = 2, 8 do
+                    local info = debug.getinfo(lvl, "S")
+                    if not info or not info.short_src then break end
+                    local src = info.short_src
+                    -- Match both "ReplicatedStorage.Modules.FPS.Bullet" and obfuscated paths
+                    if (src:find("FPS") and src:find("Bullet")) or src:find("Modules.FPS") then
+                        found = true; break
+                    end
                 end
             end)
+            return found
+        end
+
+        local mt = getrawmetatable(game)
+        local oldNC = mt.__namecall
+        _saOldNC = oldNC
+
+        setreadonly(mt, false)
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+
+            if  method == "Raycast"
+            and not checkcaller()
+            and _saActive
+            and _saMode == "normal"
+            and _saLockTarget
+            then
+                if _fromBulletSim() then
+                    local args = { ... }
+                    local origin = args[1]
+                    if typeof(origin) == "Vector3" then
+                        -- Redirect toward the (optionally predicted) target position.
+                        -- Use a very large magnitude so the ray always reaches the target.
+                        local targetPos = _saLockTarget.AdjustedPos
+                        args[2] = (targetPos - origin).Unit * 9999
+                        return oldNC(self, table.unpack(args))
+                    end
+                end
+            end
+
+            return oldNC(self, ...)
         end)
-
-        return r1, r2, r3, r4
+        setreadonly(mt, true)
+        _saNCHooked = true
     end
 
-    local hookOk, hookErr = pcall(function()
-        _saOrigCB = hookfunction(BM.CreateBullet, newcclosure(bulletCallback))
-    end)
-
-    if not hookOk or not _saOrigCB then
-        EH_Notify("[SA] hook failed: " .. tostring(hookErr), 5)
-        return
-    end
-
-    _saHooked = true
     EH_Notify("[SA] silent aim active", 3)
 end
 
+-- ── Unhook ────────────────────────────────────────────────────────────────────
 local function _unhookPerfect()
     if not _saOldNC then return end
     pcall(function()
@@ -495,13 +507,13 @@ end
 
 -- ── FOV Circle ────────────────────────────────────────────────────────────────
 _saFovCircle = Drawing.new("Circle")
-_saFovCircle.NumSides = 64
-_saFovCircle.Thickness = 1.5
-_saFovCircle.Color = Color3.fromRGB(255, 155, 205)
+_saFovCircle.NumSides    = 64
+_saFovCircle.Thickness   = 1.5
+_saFovCircle.Color       = Color3.fromRGB(255, 155, 205)
 _saFovCircle.Transparency = 0.6
-_saFovCircle.Filled = false
-_saFovCircle.Visible = false
-_saFovCircle.Radius = 150
+_saFovCircle.Filled      = false
+_saFovCircle.Visible     = false
+_saFovCircle.Radius      = 150
 
 game:GetService("RunService").RenderStepped:Connect(function()
     if _saFovCircle then
@@ -519,14 +531,11 @@ end)
 SASection:Toggle({Title = "enabled", Flag = "SAEnabled", Default = false, Callback = function(s)
     _saActive = s
     if s then
-        if _saMode == "normal" then
-            _hookNormal()
-        else
-            _hookPerfect()
-        end
+        if _saMode == "normal" then _hookNormal()
+        else _hookPerfect() end
     else
-        _unhookPerfect()
         _saLockTarget = nil
+        _unhookPerfect()
     end
 end})
 
@@ -535,12 +544,8 @@ SASection:Dropdown({Title = "mode", Flag = "SAMode",
     Callback = function(v)
         _saMode = v
         if _saActive then
-            if v == "perfect" then
-                _hookPerfect()
-            else
-                _unhookPerfect()
-                _hookNormal()
-            end
+            if v == "perfect" then _hookPerfect()
+            else _unhookPerfect(); _hookNormal() end
         end
     end
 })
