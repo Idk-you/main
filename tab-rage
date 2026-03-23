@@ -296,17 +296,12 @@ local _saPrediction = false
 local _saHooked     = false
 local _saOrigCB     = nil
 
--- ── Instant hit state (ported from skvjw9z reference) ─────────────────────────
-local _ihActive       = false
-local _ihHooked       = false
--- instantTarget: the FOV-closest part, set inside the SA hookfunction each shot
--- so the Raycast hook always knows where to redirect
-local instantTarget   = nil
--- lastHitPart: set in Raycast hook, used in ProjectileInflict:FireServer hook
-local lastHitPart     = nil
--- bulletData: keyed by bulletId, stores origin/tick/speed/drag for tick correction
--- populated in FireProjectile:InvokeServer hook, consumed in ProjectileInflict:FireServer
-local bulletData      = {}
+-- ── Instant hit state ─────────────────────────────────────────────────────────
+local _ihActive     = false
+local _ihHooked     = false
+local instantTarget = nil
+local lastHitPart   = nil
+local bulletData    = {}
 
 -- ── Ballistic helpers (petal) ─────────────────────────────────────────────────
 local function _saaSolve(A, B, C)
@@ -372,7 +367,7 @@ local function _saGetTarget()
     return closest
 end
 
--- ── Silent aim — exact working petal logic, unchanged ─────────────────────────
+-- ── Silent aim — exact working petal logic ────────────────────────────────────
 local function _hookNormal()
     if _saHooked then return end
     if not hookfunction then
@@ -389,9 +384,7 @@ local function _hookNormal()
         if _saActive and not checkcaller() then
             local target = _saGetTarget()
             if target and aim and aim.Position then
-                -- Also set instantTarget so the IH Raycast hook has a target this shot
                 instantTarget = target
-
                 local ammoObj = RS.AmmoTypes:FindFirstChild(ammo)
                 if ammoObj then
                     ammoObj:SetAttribute("Drag", 0)
@@ -419,41 +412,14 @@ local function _hookNormal()
     EH_Notify("[SA] silent aim active", 3)
 end
 
--- ── Instant hit — ported directly from skvjw9z reference ──────────────────────
---
---  Four hooks inside one __namecall replacement:
---
---  Hook 1 — GetAttribute("ProjectileDrop" / "Drag") → 0
---    Removes bullet drop and drag so trajectory is straight and
---    the fake hit position stays geometrically consistent.
---
---  Hook 2 — workspace:Raycast (always wallbang)
---    Bullet sim calls Raycast every frame. When _ihActive and instantTarget
---    is set (by SA hookfunction above), we return a fake RaycastResult
---    pointing at the target. Sets lastHitPart for Hook 4.
---
---  Hook 3 — FireProjectile:InvokeServer
---    Fires right at the start of CreateBullet to register the bullet on
---    the server. We capture bulletId, tick, and origin/speed into bulletData
---    so Hook 4 can compute the correct tick correction.
---    We still call oldNC so the bullet is actually registered.
---
---  Hook 4 — ProjectileInflict:FireServer
---    Called after the Raycast hit. We apply the drag-corrected tick so
---    the server's travel-time validation passes. Uses bulletData from Hook 3.
---    Also overrides args[1] with lastHitPart so the server knows what was hit.
---
+-- ── Instant hit — ported from skvjw9z reference ───────────────────────────────
 local function _hookInstantHit()
     if _ihHooked then return end
-
     local RS = game:GetService("ReplicatedStorage")
-
     local mt    = getrawmetatable(game)
     local oldNC = mt and mt.__namecall
-
     if not oldNC then
-        EH_Notify("[IH] __namecall unavailable on this executor", 5)
-        _ihActive = false; return
+        EH_Notify("[IH] __namecall unavailable", 5); _ihActive = false; return
     end
 
     local function newNC(self, ...)
@@ -463,9 +429,7 @@ local function _hookInstantHit()
         -- Hook 1: zero drop and drag
         if _ihActive and method == "GetAttribute" then
             local attr = args[1]
-            if attr == "ProjectileDrop" or attr == "Drag" then
-                return 0
-            end
+            if attr == "ProjectileDrop" or attr == "Drag" then return 0 end
         end
 
         -- Hook 2: workspace:Raycast → fake instant hit
@@ -479,8 +443,7 @@ local function _hookInstantHit()
                         Position = instantTarget.Position,
                         Normal   = (origin - instantTarget.Position).Unit,
                         Material = instantTarget:IsA("BasePart")
-                            and instantTarget.Material
-                            or  Enum.Material.SmoothPlastic,
+                            and instantTarget.Material or Enum.Material.SmoothPlastic,
                         Distance = (instantTarget.Position - origin).Magnitude,
                     }
                 end
@@ -489,8 +452,7 @@ local function _hookInstantHit()
 
         -- Hook 3: FireProjectile:InvokeServer — capture bullet metadata
         if _ihActive and method == "InvokeServer"
-            and typeof(self) == "Instance"
-            and self.Name == "FireProjectile"
+            and typeof(self) == "Instance" and self.Name == "FireProjectile"
         then
             local bulletId = args[2]
             local shotTick = args[3]
@@ -504,12 +466,9 @@ local function _hookInstantHit()
                         local ammoName = weapon and weapon:GetAttribute("AmmoType")
                         local ammoObj  = ammoName and RS.AmmoTypes:FindFirstChild(ammoName)
                         if not ammoObj then
-                            for _, a in pairs(RS.AmmoTypes:GetChildren()) do
-                                ammoObj = a; break
-                            end
+                            for _, a in pairs(RS.AmmoTypes:GetChildren()) do ammoObj = a; break end
                         end
                         local speed  = ammoObj and ammoObj:GetAttribute("MuzzleVelocity") or 500
-                        local drag   = 0  -- zeroed by Hook 1
                         local origin = Vector3.new()
                         pcall(function()
                             if typeof(aimObj) == "CFrame" then
@@ -519,47 +478,36 @@ local function _hookInstantHit()
                             end
                         end)
                         bulletData[bulletId] = {
-                            Origin          = origin,
-                            Tick            = shotTick or 0,
-                            Drag            = drag,
-                            ProjectileSpeed = speed,
+                            Origin = origin, Tick = shotTick or 0,
+                            Drag = 0, ProjectileSpeed = speed,
                         }
                     end)
                 end)
             end
-            -- Must still call original so bullet registers on server
             return oldNC(self, ...)
         end
 
-        -- Hook 4: ProjectileInflict:FireServer — drag-corrected tick + override hitPart
+        -- Hook 4: ProjectileInflict:FireServer — tick correction
         if _ihActive and method == "FireServer"
-            and typeof(self) == "Instance"
-            and self.Name == "ProjectileInflict"
+            and typeof(self) == "Instance" and self.Name == "ProjectileInflict"
         then
-            -- Skip calls that originate from CharacterController (non-bullet hits)
             if debug and debug.traceback then
                 local ok2, tb = pcall(debug.traceback)
                 if ok2 and tb and tb:find("CharacterController") then
                     return oldNC(self, ...)
                 end
             end
-
             local part     = lastHitPart
             local bulletId = args[3]
-
             if part and part.Parent then
                 local K = bulletId and bulletData[bulletId]
                 if K and K.ProjectileSpeed and K.ProjectileSpeed > 0 then
-                    -- Compute travel time A = dist / speed, then correct for
-                    -- target velocity and drag (drag was zeroed so correction is small)
-                    local dist  = (part.Position - K.Origin).Magnitude
-                    local A     = dist / K.ProjectileSpeed
-                    local hPos  = part.Position + (part.Velocity * A)
-                    local o     = (hPos - part.Position).Magnitude
-                    local spd2  = K.ProjectileSpeed - K.Drag * K.ProjectileSpeed^2 * A^2
-                    if spd2 and spd2 > 0 then
-                        A = A + (o / spd2)
-                    end
+                    local dist = (part.Position - K.Origin).Magnitude
+                    local A    = dist / K.ProjectileSpeed
+                    local hPos = part.Position + (part.Velocity * A)
+                    local o    = (hPos - part.Position).Magnitude
+                    local spd2 = K.ProjectileSpeed - K.Drag * K.ProjectileSpeed^2 * A^2
+                    if spd2 and spd2 > 0 then A = A + (o / spd2) end
                     if A > 0 then K.Tick = K.Tick + A end
                     args[4] = K.Tick
                     bulletData[bulletId] = nil
@@ -567,7 +515,6 @@ local function _hookInstantHit()
                 args[1] = part
                 return oldNC(self, unpack(args))
             end
-
             return oldNC(self, ...)
         end
 
@@ -575,40 +522,24 @@ local function _hookInstantHit()
     end
 
     local wrappedNC = typeof(newcclosure) == "function" and newcclosure(newNC) or newNC
-
     local assignOk, assignErr = pcall(function()
         setreadonly(mt, false)
         mt.__namecall = wrappedNC
         setreadonly(mt, true)
     end)
-
     if not assignOk then
         pcall(function() setreadonly(mt, true) end)
         EH_Notify("[IH] hook failed: " .. tostring(assignErr), 5)
         _ihActive = false; return
     end
-
     _ihHooked = true
     EH_Notify("[IH] instant hit active", 3)
 end
 
 local function _unhookInstantHit()
     if not _ihHooked then return end
-    -- Restore original __namecall
-    pcall(function()
-        local mt = getrawmetatable(game)
-        -- We can't easily restore without storing oldNC outside the closure,
-        -- so we just disable _ihActive — the hook checks that flag before acting.
-        -- On next inject the hook will be fresh.
-        setreadonly(mt, false)
-        -- newNC checks _ihActive before doing anything, so disabling it is safe
-        setreadonly(mt, true)
-    end)
-    _ihActive   = false
-    _ihHooked   = false
-    lastHitPart = nil
-    instantTarget = nil
-    bulletData  = {}
+    _ihActive = false; _ihHooked = false
+    lastHitPart = nil; instantTarget = nil; bulletData = {}
     EH_Notify("[IH] instant hit off", 2)
 end
 
@@ -639,19 +570,14 @@ SASection:Toggle({Title = "enabled", Flag = "SAEnabled", Default = false, Callba
     _saActive = s
     if s then _hookNormal() end
 end})
-
 SASection:Toggle({Title = "instant hit", Flag = "SAInstantHit", Default = false, Callback = function(s)
     _ihActive = s
-    if s then _hookInstantHit()
-    else _unhookInstantHit() end
+    if s then _hookInstantHit() else _unhookInstantHit() end
 end})
-
 SASection:Toggle({Title = "prediction", Flag = "SAPred", Default = false, Callback = function(s)
     _saPrediction = s
 end})
-
 SASection:Toggle({Title = "show fov circle", Flag = "SAShowFov", Default = false})
-
 SASection:Slider({Title = "fov radius", Flag = "SAFov", Symbol = "px",
     Default = 150, Min = 10, Max = 500, Decimals = 0, Callback = function(v)
     _saFOV = v
@@ -670,15 +596,5 @@ AntiAimSection:Dropdown({Title = "mode", Flag = "AAMode",
 AntiAimSection:Slider({Title = "jitter angle", Flag = "AAJitter", Symbol = "deg", Default = 35, Min = 1, Max = 180, Decimals = 0, Callback = function(v) _AA.jitterAng = v end})
 AntiAimSection:Slider({Title = "pitch value",  Flag = "AAPitch",  Symbol = "deg", Default = 89, Min = 1, Max = 89,  Decimals = 0, Callback = function(v) _AA.pitchValue = v end})
 AntiAimSection:Slider({Title = "spin speed",   Flag = "AASpin",   Symbol = "dpt", Default = 12, Min = 1, Max = 60,  Decimals = 0, Callback = function(v) _AA.spinSpeed = v end})
-
--- ── Underground Resolver ──────────────────────────────────────────────────────
-local UGSection = RageTab:Section("underground resolver", "Right")
-local _togUGEnabled = UGSection:Toggle({Title = "enabled", Flag = "UGEnabled", Default = false, Callback = function(s)
-    _ugEnable(s)
-end})
-_togUGEnabled:Keybind({Title = "key", Flag = "UGKey", Key = Enum.KeyCode.U, StateType = "Always", Callback = function() end})
-UGSection:Slider({Title = "depth", Flag = "UGDepth", Symbol = "st", Default = 25, Min = 1, Max = 60, Decimals = 0, Callback = function(v)
-    _UG.depth = v
-end})
 
 _G.EH_RageTab = RageTab
