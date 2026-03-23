@@ -7,19 +7,19 @@ if not _UG then _UG = {} end
 local VisTab = Window:Tab("vis")
 
 local WldSection = VisTab:Section("world", "Left")
-WldSection:Toggle({Title = "fullbright", Flag = "WldFullbright", Callback = function(s)
+WldSection:Toggle({Title = "fullbright", Flag = "WldFullbright", Default = false, Callback = function(s)
     ModS.fullbright = s
     if s then
         Lighting.Brightness = 2
-        Lighting.Ambient = Color3.fromRGB(178, 178, 178)
-        Lighting.OutdoorAmbient = Color3.fromRGB(178, 178, 178)
+        Lighting.Ambient = Color3.fromRGB(178,178,178)
+        Lighting.OutdoorAmbient = Color3.fromRGB(178,178,178)
     else
         Lighting.Brightness = 1
-        Lighting.Ambient = Color3.fromRGB(103, 103, 103)
-        Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+        Lighting.Ambient = Color3.fromRGB(103,103,103)
+        Lighting.OutdoorAmbient = Color3.fromRGB(127,127,127)
     end
-end, Default = false})
-WldSection:Toggle({Title = "remove fog", Flag = "WldNoFog", Callback = function(s)
+end})
+WldSection:Toggle({Title = "remove fog", Flag = "WldNoFog", Default = false, Callback = function(s)
     ModS.noFog = s
     if s then
         Lighting.FogEnd = 1e6; Lighting.FogStart = 999999
@@ -30,8 +30,8 @@ WldSection:Toggle({Title = "remove fog", Flag = "WldNoFog", Callback = function(
         local atm = Lighting:FindFirstChildOfClass("Atmosphere")
         if atm then atm.Haze = 1.6; atm.Density = 0.28 end
     end
-end, Default = false})
-WldSection:Toggle({Title = "no clouds", Flag = "WldNoClouds", Callback = function(s)
+end})
+WldSection:Toggle({Title = "no clouds", Flag = "WldNoClouds", Default = false, Callback = function(s)
     for _, obj in ipairs(Lighting:GetChildren()) do
         if obj:IsA("Clouds") then obj.Enabled = not s end
     end
@@ -41,69 +41,49 @@ WldSection:Toggle({Title = "no clouds", Flag = "WldNoClouds", Callback = functio
             if obj:IsA("Clouds") then obj.Enabled = not s end
         end
     end
-end, Default = false})
+end})
 
 applyGrassRemoval = function(enable)
     local terrain = workspace:FindFirstChildOfClass("Terrain")
-
     local function _zeroGrass(t)
         if not t then return end
         pcall(function() sethiddenproperty(t, "Decoration", false) end)
-        pcall(function() sethiddenproperty(t, "GrassLength",  0)   end)
+        pcall(function() sethiddenproperty(t, "GrassLength", 0) end)
     end
     local function _restoreGrass(t)
         if not t then return end
         pcall(function() sethiddenproperty(t, "Decoration", true) end)
-        pcall(function() sethiddenproperty(t, "GrassLength", 2)   end)
+        pcall(function() sethiddenproperty(t, "GrassLength", 2) end)
     end
     local function _zeroMaterial()
         pcall(function()
             local ms = game:GetService("MaterialService")
-            if ms and ms:FindFirstChild("GrassTerrain") then
-                ms.GrassTerrain.StudsPerTile = 9999999
-            end
+            if ms and ms:FindFirstChild("GrassTerrain") then ms.GrassTerrain.StudsPerTile = 9999999 end
         end)
     end
     local function _restoreMaterial()
         pcall(function()
             local ms = game:GetService("MaterialService")
-            if ms and ms:FindFirstChild("GrassTerrain") then
-                ms.GrassTerrain.StudsPerTile = 8
-            end
+            if ms and ms:FindFirstChild("GrassTerrain") then ms.GrassTerrain.StudsPerTile = 8 end
         end)
     end
-
-    -- disconnect any old watcher first
     if BrzS._grassConn then BrzS._grassConn:Disconnect(); BrzS._grassConn = nil end
     if BrzS._grassCharConn then BrzS._grassCharConn:Disconnect(); BrzS._grassCharConn = nil end
-
     if enable then
-        -- apply immediately to current terrain
-        _zeroGrass(terrain)
-        _zeroMaterial()
-
-        -- watch for terrain being re-added (map changes, teleports)
+        _zeroGrass(terrain); _zeroMaterial()
         BrzS._grassConn = workspace.DescendantAdded:Connect(function(obj)
-            if obj:IsA("Terrain") then
-                task.wait() -- one frame so it's parented fully
-                _zeroGrass(obj)
-                _zeroMaterial()
-            end
+            if obj:IsA("Terrain") then task.wait(); _zeroGrass(obj); _zeroMaterial() end
         end)
-        -- re-apply on respawn in case terrain is reloaded per-character
         BrzS._grassCharConn = player.CharacterAdded:Connect(function()
-            task.wait(0.5)
-            _zeroGrass(workspace:FindFirstChildOfClass("Terrain"))
+            task.wait(0.5); _zeroGrass(workspace:FindFirstChildOfClass("Terrain"))
         end)
     else
-        _restoreGrass(terrain)
-        _restoreMaterial()
+        _restoreGrass(terrain); _restoreMaterial()
     end
 end
 
 WldSection:Toggle({Title = "remove grass", Flag = "WldNoGrass", Default = false, Callback = function(s)
-    ModS.noGrass = s
-    applyGrassRemoval(s)
+    ModS.noGrass = s; applyGrassRemoval(s)
 end})
 WldSection:Toggle({Title = "no leaves", Flag = "WldNoLeaves", Default = false, Callback = function(s)
     BrzS.noLeaves = s
@@ -111,7 +91,6 @@ WldSection:Toggle({Title = "no leaves", Flag = "WldNoLeaves", Default = false, C
 end})
 WldSection:Slider({Title = "clock time", Flag = "WldClockTime", Symbol = "h", Default = 12, Min = 0, Max = 24, Decimals = 1, Callback = function(v)
     ModS.clockTime = v
-
     if Library.Flags["WldLockTime"] then
         Lighting.ClockTime = v
         local h = math.floor(v); local m = math.floor((v-h)*60)
@@ -119,10 +98,10 @@ WldSection:Slider({Title = "clock time", Flag = "WldClockTime", Symbol = "h", De
         BrzS._lockedClockTime = v
     end
 end})
-WldSection:Toggle({Title = "lock time", Flag = "WldLockTime", Callback = function(s)
+WldSection:Toggle({Title = "lock time", Flag = "WldLockTime", Default = false, Callback = function(s)
     if not s then BrzS._lockedClockTime = nil
     else BrzS._lockedClockTime = Lighting.ClockTime end
-end, Default = false})
+end})
 
 RunService.Heartbeat:Connect(function(dt)
     _EHT.wld = _EHT.wld + dt
@@ -133,16 +112,14 @@ RunService.Heartbeat:Connect(function(dt)
         local atm = Lighting:FindFirstChildOfClass("Atmosphere")
         if atm then atm.Haze = 0; atm.Density = 0; atm.Glare = 0 end
     end
-    if BrzS._lockedClockTime then
-        Lighting.ClockTime = BrzS._lockedClockTime
-    end
+    if BrzS._lockedClockTime then Lighting.ClockTime = BrzS._lockedClockTime end
 end)
 
 local AmbSection = VisTab:Section("ambient", "Left")
 AmbSection:Toggle({Title = "ambient changer", Flag = "AmbientChanger", Default = false})
 AmbSection:Toggle({Title = "rgb mode", Flag = "AmbientRGB", Default = false})
 AmbSection:Slider({Title = "rgb speed", Flag = "AmbientRGBSpeed", Symbol = "x", Default = 5, Min = 1, Max = 20, Decimals = 1})
-AmbSection:Toggle({Title = "ambient color", Flag = "AmbientColTog", Default = false}):Colorpicker({Color = Color3.fromRGB(178, 140, 255), Flag = "AmbientCol"})
+AmbSection:Toggle({Title = "ambient color", Flag = "AmbientColTog", Default = false}):Colorpicker({Color = Color3.fromRGB(178,140,255), Flag = "AmbientCol"})
 
 local CamSection = VisTab:Section("camera", "Right")
 CamSection:Toggle({Title = "fov override", Flag = "CamFOVOverride", Default = false})
@@ -155,10 +132,140 @@ CamSection:Dropdown({Title = "crosshair style", Flag = "CamXhairStyle", List = {
 CamSection:Toggle({Title = "camera tilt", Flag = "CamTilt", Default = false})
 CamSection:Slider({Title = "tilt angle", Flag = "CamTiltAngle", Symbol = "deg", Default = 15, Min = 0, Max = 45, Decimals = 1})
 
+-- ─── target info ──────────────────────────────────────────────────────────────
+-- Displays info about the closest player to the mouse in the center of screen.
+-- Ported from f15zp02 lines 6400-6536.
+local TargetBox = VisTab:Section("target info", "Right")
+TargetBox:Toggle({Title = "target info", Flag = "targetinfo_enabled", Default = false})
+TargetBox:Toggle({Title = "username",     Flag = "targetinfo_name",    Default = true})
+TargetBox:Toggle({Title = "visible status",Flag = "targetinfo_visible", Default = true})
+TargetBox:Toggle({Title = "moving/still", Flag = "targetinfo_moving",  Default = true})
+TargetBox:Toggle({Title = "hp %",         Flag = "targetinfo_hp",      Default = true})
+TargetBox:Toggle({Title = "holding",      Flag = "targetinfo_holding", Default = true})
+TargetBox:Toggle({Title = "distance",     Flag = "targetinfo_distance",Default = true})
+TargetBox:Slider({Title = "size", Flag = "targetinfo_size",
+    Default = 15, Min = 10, Max = 30, Decimals = 0})
+TargetBox:Slider({Title = "y offset", Flag = "targetinfo_yoffset",
+    Default = 0, Min = -300, Max = 300, Decimals = 0})
+local _tiBindTog = TargetBox:Toggle({Title = "bind toggle", Flag = "targetinfo_bind_tog", Default = false})
 
+do
+    local _UIS     = game:GetService("UserInputService")
+    local _Players = game:GetService("Players")
+    local _LP      = _Players.LocalPlayer
+    local _showing = true
+
+    -- 6 Drawing text objects — one per line of info
+    local _tiDrawings = {}
+    for i = 1, 6 do
+        local d = Drawing.new("Text")
+        d.Visible = false; d.Outline = true; d.Font = 3
+        d.Color = Color3.fromRGB(255, 155, 205)
+        d.OutlineColor = Color3.new(0, 0, 0)
+        d.Center = true
+        _tiDrawings[i] = d
+    end
+
+    local function _tiHideAll()
+        for _, d in ipairs(_tiDrawings) do d.Visible = false end
+    end
+
+    local function _tiVisible(head)
+        local origin = cam.CFrame.Position
+        local dir    = head.Position - origin
+        local rp     = RaycastParams.new()
+        rp.FilterDescendantsInstances = {_LP.Character}
+        rp.FilterType = Enum.RaycastFilterType.Blacklist
+        local result = workspace:Raycast(origin, dir, rp)
+        return result and result.Instance:IsDescendantOf(head.Parent)
+    end
+
+    local function _tiClosest()
+        local mousePos = _UIS:GetMouseLocation()
+        local closest, dist = nil, math.huge
+        for _, plr in ipairs(_Players:GetPlayers()) do
+            if plr ~= _LP and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                local pos, onScreen = cam:WorldToViewportPoint(plr.Character.HumanoidRootPart.Position)
+                if onScreen then
+                    local d = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+                    if d < dist then dist = d; closest = plr end
+                end
+            end
+        end
+        return closest
+    end
+
+    -- Keybind toggle: pressing the key flips _showing
+    _tiBindTog:Keybind({Title = "bind", Flag = "targetinfo_bind", Default = "None", Mode = "Toggle",
+        Text = "target info", Callback = function()
+            if not Library.Flags["targetinfo_enabled"] then return end
+            _showing = not _showing
+            if not _showing then _tiHideAll() end
+        end
+    })
+
+    task.spawn(function()
+        while true do
+            task.wait(0.025)
+            if not Library.Flags["targetinfo_enabled"] or not _showing then
+                _tiHideAll(); continue
+            end
+            local target = _tiClosest()
+            if not target or not target.Character then _tiHideAll(); continue end
+
+            local head = target.Character:FindFirstChild("Head")
+            local hum  = target.Character:FindFirstChildOfClass("Humanoid")
+            local hrp  = target.Character:FindFirstChild("HumanoidRootPart")
+            if not head or not hum or not hrp then _tiHideAll(); continue end
+
+            local size    = Library.Flags["targetinfo_size"]    or 15
+            local yOffset = Library.Flags["targetinfo_yoffset"] or 0
+            local index   = 1
+            local color   = Color3.fromRGB(255, 155, 205)
+
+            local function push(text)
+                local d = _tiDrawings[index]
+                d.Size     = size
+                d.Text     = tostring(text)
+                d.Position = Vector2.new(
+                    cam.ViewportSize.X / 2,
+                    cam.ViewportSize.Y / 2 + yOffset + (index - 1) * (size + 2)
+                )
+                d.Color   = color
+                d.Visible = true
+                index     = index + 1
+            end
+
+            -- hide lines we won't use
+            for i = index, #_tiDrawings do _tiDrawings[i].Visible = false end
+
+            if Library.Flags["targetinfo_name"]     then push(string.lower(target.Name)) end
+            if Library.Flags["targetinfo_visible"]  then push(_tiVisible(head) and "visible" or "hidden") end
+            if Library.Flags["targetinfo_moving"]   then
+                local vel = hrp.Velocity
+                push(Vector3.new(vel.X,0,vel.Z).Magnitude > 1 and "moving" or "still")
+            end
+            if Library.Flags["targetinfo_hp"]       then
+                push(string.format("%d%%", math.clamp(hum.Health/hum.MaxHealth*100, 0, 100)))
+            end
+            if Library.Flags["targetinfo_holding"]  then
+                local holding = "none"
+                local h = target.Character:FindFirstChild("Holding", true)
+                if h and h:IsA("ObjectValue") and h.Value then holding = string.lower(h.Value.Name) end
+                push(holding)
+            end
+            if Library.Flags["targetinfo_distance"] then
+                local studs = (cam.CFrame.Position - hrp.Position).Magnitude
+                push(math.floor(studs * 0.28) .. "m")
+            end
+
+            -- hide any leftover lines
+            for i = index, #_tiDrawings do _tiDrawings[i].Visible = false end
+        end
+    end)
+end
 
 local FreeCamSection = VisTab:Section("free cam", "Left")
-
 do
     local _fcEnabled = false
     local _fcCam = nil
@@ -169,43 +276,33 @@ do
     FreeCamSection:Toggle({Title = "enable free cam", Flag = "FreeCam", Default = false, Callback = function(s)
         _fcEnabled = s
         if s then
-            -- store original camera
             _fcCam = {mode = cam.CameraType, subject = cam.CameraSubject, cf = cam.CFrame}
             cam.CameraType = Enum.CameraType.Scriptable
             cam.CameraSubject = nil
-
-            local UIS = game:GetService("UserInputService")
-            local RS  = game:GetService("RunService")
+            local UIS2 = game:GetService("UserInputService")
+            local RS2  = game:GetService("RunService")
             local pitch, yaw = 0, 0
-            local lastMouse = UIS:GetMouseLocation()
+            local lastMouse = UIS2:GetMouseLocation()
             local sens = 0.003
-
-            _fcConn = RS.RenderStepped:Connect(function(dt)
+            _fcConn = RS2.RenderStepped:Connect(function(dt)
                 if not _fcEnabled then
-                    if _fcConn then _fcConn:Disconnect(); _fcConn = nil end
-                    return
+                    if _fcConn then _fcConn:Disconnect(); _fcConn = nil end; return
                 end
-                -- mouse look
-                local m = UIS:GetMouseLocation()
-                local dx = m.X - lastMouse.X
-                local dy = m.Y - lastMouse.Y
+                local m = UIS2:GetMouseLocation()
+                local dx = m.X - lastMouse.X; local dy = m.Y - lastMouse.Y
                 lastMouse = m
-                yaw   = yaw   - dx * sens
-                pitch = math.clamp(pitch - dy * sens, -math.pi/2 + 0.01, math.pi/2 - 0.01)
-                local rot = CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)
-
-                -- WASD movement
+                yaw   = yaw - dx * sens
+                pitch = math.clamp(pitch - dy * sens, -math.pi/2+0.01, math.pi/2-0.01)
+                local rot = CFrame.Angles(0,yaw,0) * CFrame.Angles(pitch,0,0)
                 local move = Vector3.new()
                 local spd = _fcSpeed * dt
-                if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + rot.LookVector end
-                if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - rot.LookVector end
-                if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - rot.RightVector end
-                if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + rot.RightVector end
-                if UIS:IsKeyDown(Enum.KeyCode.E) then move = move + Vector3.new(0,1,0) end
-                if UIS:IsKeyDown(Enum.KeyCode.Q) then move = move - Vector3.new(0,1,0) end
-
-                local pos = cam.CFrame.Position + move * spd
-                cam.CFrame = CFrame.new(pos) * rot
+                if UIS2:IsKeyDown(Enum.KeyCode.W) then move = move + rot.LookVector end
+                if UIS2:IsKeyDown(Enum.KeyCode.S) then move = move - rot.LookVector end
+                if UIS2:IsKeyDown(Enum.KeyCode.A) then move = move - rot.RightVector end
+                if UIS2:IsKeyDown(Enum.KeyCode.D) then move = move + rot.RightVector end
+                if UIS2:IsKeyDown(Enum.KeyCode.E) then move = move + Vector3.new(0,1,0) end
+                if UIS2:IsKeyDown(Enum.KeyCode.Q) then move = move - Vector3.new(0,1,0) end
+                cam.CFrame = CFrame.new(cam.CFrame.Position + move*spd) * rot
             end)
         else
             if _fcConn then _fcConn:Disconnect(); _fcConn = nil end
@@ -217,11 +314,9 @@ do
             end
         end
     end})
-
     FreeCamSection:Slider({Title = "speed", Flag = "FreeCamSpeed", Symbol = "", Default = 20, Min = 5, Max = 150, Decimals = 0, Callback = function(v)
-        _fcSpeed = v
-        _fcSensLabel:Set("speed: " .. v)
+        _fcSpeed = v; _fcSensLabel:Set("speed: "..v)
     end})
 end
 
-_G.EH_VisTab    = VisTab
+_G.EH_VisTab = VisTab
