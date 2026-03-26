@@ -60,8 +60,6 @@ local function _detonateAllMines()
 end
 
 -- ─── bullet tracer ────────────────────────────────────────────────────────────
--- Ported from f15zp02. Fires a Beam between the gun barrel and the bullet's
--- impact position whenever a shot is fired. Fades out over BeamFadeDuration.
 getgenv().BeamEnabled      = getgenv().BeamEnabled      or false
 getgenv().BeamDuration     = getgenv().BeamDuration     or 2
 getgenv().BeamFadeDuration = getgenv().BeamFadeDuration or 2
@@ -95,8 +93,6 @@ local function _createBeam(origin, targetPos)
     end)
 end
 
--- Hook into CreateBullet to spawn tracers on every shot.
--- Runs in a separate task.spawn so it doesn't interfere with SA hookfunction.
 task.spawn(function()
     local RS = game:GetService("ReplicatedStorage")
     local ok, BM = pcall(require, RS.Modules.FPS.Bullet)
@@ -106,16 +102,13 @@ task.spawn(function()
         if getgenv().BeamEnabled and aim and aim.Position then
             task.spawn(function()
                 local origin = aim.Position
-                -- Try to get the barrel position from the viewmodel for accuracy
                 pcall(function()
                     local vm = cam:FindFirstChild("ViewModel")
                     if vm then
-                        local itemRoot = vm:FindFirstChild("Item")
-                            and vm.Item:FindFirstChild("ItemRoot")
+                        local itemRoot = vm:FindFirstChild("Item") and vm.Item:FindFirstChild("ItemRoot")
                         if itemRoot then origin = itemRoot.Position end
                     end
                 end)
-                -- Target: use SA's instantTarget if available, otherwise look direction
                 local targetPos = origin + cam.CFrame.LookVector * 1000
                 pcall(function()
                     if instantTarget and instantTarget.Parent then
@@ -197,23 +190,31 @@ WorldMiscSection:Toggle({Title = "cheat detector", Flag = "CheatDetector", Defau
 end})
 
 -- ─── bullet tracers UI ────────────────────────────────────────────────────────
+-- NOTE: Section:Toggle takes a SINGLE table argument {Title=, Flag=, ...}
+-- Do NOT pass a string as the first argument — that was the bug causing all tabs after this to be invisible.
 local MiscDrawing = MiscTab:Section("bullet tracers", "Left")
-MiscDrawing:Toggle("BeamToggle", {
-    Text = "tracers",
-    Default = false,
+MiscDrawing:Toggle({
+    Title    = "tracers",
+    Flag     = "BeamToggle",
+    Default  = false,
     Callback = function(v)
         getgenv().BeamEnabled = v
     end
 })
-MiscDrawing:Colorpicker({
-    Color   = Color3.fromRGB(255, 155, 205),
-    Flag    = "TracerColor",
+MiscDrawing:Toggle({
+    Title    = "tracer color",
+    Flag     = "TracerColorTog",
+    Default  = false,
+}):Colorpicker({
+    Color    = Color3.fromRGB(255, 155, 205),
+    Flag     = "TracerColor",
     Callback = function(c)
         getgenv().EH_TracerColor = c
     end
 })
-MiscDrawing:Slider("BeamDurationSlider", {
-    Text     = "tracer duration",
+MiscDrawing:Slider({
+    Title    = "tracer duration",
+    Flag     = "BeamDurationSlider",
     Default  = 2,
     Min      = 0.1,
     Max      = 5,
@@ -222,8 +223,9 @@ MiscDrawing:Slider("BeamDurationSlider", {
         getgenv().BeamDuration = v
     end
 })
-MiscDrawing:Slider("BeamFadeSlider", {
-    Text     = "tracer fade out",
+MiscDrawing:Slider({
+    Title    = "tracer fade out",
+    Flag     = "BeamFadeSlider",
     Default  = 2,
     Min      = 0.1,
     Max      = 5,
@@ -316,15 +318,15 @@ end})
 BossSection:Toggle({Title = "panel movable", Flag = "BossMovable", Default = false})
 
 local DetSection = MiscTab:Section("detectors", "Right")
-DetSection:Toggle({Title = "mod detector", Flag = "ModDetector", Default = false})
+DetSection:Toggle({Title = "mod detector",   Flag = "ModDetector",   Default = false})
 DetSection:Toggle({Title = "cheat detector", Flag = "CheatDetector", Default = false})
 
 local VMSection = MiscTab:Section("viewmodel offsets", "Right")
 VMSection:Toggle({Title = "enable offsets", Flag = "VMOffsetsEnabled", Default = false, Callback = function(s)
     BrzS.vmOffsets = s
 end})
-VMSection:Slider({Title = "pos  x  (left / right)", Flag = "VMOffX", Symbol = "", Default = 0, Min = -200, Max = 200, Decimals = 1, Callback = function(v) BrzS.vmOffsetX = v/100 end})
-VMSection:Slider({Title = "pos  y  (down / up)",    Flag = "VMOffY", Symbol = "", Default = 0, Min = -200, Max = 200, Decimals = 1, Callback = function(v) BrzS.vmOffsetY = v/100 end})
+VMSection:Slider({Title = "pos  x  (left / right)",  Flag = "VMOffX", Symbol = "", Default = 0, Min = -200, Max = 200, Decimals = 1, Callback = function(v) BrzS.vmOffsetX = v/100 end})
+VMSection:Slider({Title = "pos  y  (down / up)",     Flag = "VMOffY", Symbol = "", Default = 0, Min = -200, Max = 200, Decimals = 1, Callback = function(v) BrzS.vmOffsetY = v/100 end})
 VMSection:Slider({Title = "pos  z  (forward / back)",Flag = "VMOffZ", Symbol = "", Default = 0, Min = -200, Max = 200, Decimals = 1, Callback = function(v) BrzS.vmOffsetZ = v/100 end})
 local VMRotSection = MiscTab:Section("viewmodel rotation", "Right")
 VMRotSection:Slider({Title = "rot  x  (pitch)", Flag = "VMRotX", Symbol = "deg", Default = 0, Min = -4500, Max = 4500, Decimals = 1, Callback = function(v) BrzS.vmRotX = v/100 end})
@@ -336,7 +338,7 @@ VMRotSection:Button({Title = "reset offsets", Callback = function()
     BrzS.vmRotX=0; BrzS.vmRotY=0; BrzS.vmRotZ=0
 end})
 
--- ─── Auto Death Farmer (unchanged from original) ──────────────────────────────
+-- ─── Auto Death Farmer ────────────────────────────────────────────────────────
 local _farmer = {
     running=false, walkSecs=50, _thread=nil, spawnX=nil, spawnY=nil, recording=false,
 }
@@ -353,45 +355,10 @@ local function _flog(msg)
     end)
 end
 local function _farmerSendKey(keyCode)
-    _flog("SendKey: " .. tostring(keyCode))
     pcall(function()
         local VIM = game:GetService("VirtualInputManager")
         VIM:SendKeyEvent(true, keyCode, false, game); task.wait(0.08)
         VIM:SendKeyEvent(false,keyCode, false, game); task.wait(0.05)
-    end)
-end
-local function _farmerMouseClick(x, y)
-    _flog("ClickAtPos " .. math.floor(x) .. "," .. math.floor(y))
-    local function _nukeClick(btn)
-        pcall(function()
-            if typeof(getconnections)=="function" then
-                for _, sig in ipairs({btn.MouseButton1Click,btn.Activated,btn.MouseButton1Down}) do
-                    for _, c in ipairs(getconnections(sig) or {}) do pcall(function() c:Fire() end) end
-                end
-            end
-        end)
-        pcall(function() if typeof(firesignal)=="function" then firesignal(btn.MouseButton1Click) end end)
-        pcall(function() btn.MouseButton1Click:Fire() end); pcall(function() btn.Activated:Fire() end)
-        pcall(function() btn.MouseButton1Down:Fire(0,0) end); task.wait(0.04)
-        pcall(function() btn.MouseButton1Up:Fire(0,0) end)
-    end
-    local pg = player:FindFirstChild("PlayerGui")
-    if pg then
-        local ok, objs = pcall(function() return pg:GetGuiObjectsAtPosition(x, y) end)
-        if ok and objs and #objs > 0 then
-            for _, obj in ipairs(objs) do
-                if obj:IsA("TextButton") or obj:IsA("ImageButton") or obj:IsA("GuiButton") then
-                    _nukeClick(obj); break
-                end
-            end
-        end
-    end
-    task.wait(0.05)
-    pcall(function()
-        local VIM = game:GetService("VirtualInputManager")
-        VIM:SendMouseMoveEvent(x,y,game); task.wait(0.08)
-        VIM:SendMouseButtonEvent(x,y,0,true,game,1); task.wait(0.08)
-        VIM:SendMouseButtonEvent(x,y,0,false,game,1)
     end)
 end
 local function _nukeClickBtn(btn)
@@ -413,6 +380,27 @@ local function _nukeClickBtn(btn)
         VIM:SendMouseMoveEvent(cx,cy,game); task.wait(0.06)
         VIM:SendMouseButtonEvent(cx,cy,0,true,game,1); task.wait(0.06)
         VIM:SendMouseButtonEvent(cx,cy,0,false,game,1)
+    end)
+end
+local function _farmerMouseClick(x, y)
+    _flog("ClickAtPos " .. math.floor(x) .. "," .. math.floor(y))
+    local pg = player:FindFirstChild("PlayerGui")
+    if pg then
+        local ok, objs = pcall(function() return pg:GetGuiObjectsAtPosition(x, y) end)
+        if ok and objs and #objs > 0 then
+            for _, obj in ipairs(objs) do
+                if obj:IsA("TextButton") or obj:IsA("ImageButton") or obj:IsA("GuiButton") then
+                    _nukeClickBtn(obj); break
+                end
+            end
+        end
+    end
+    task.wait(0.05)
+    pcall(function()
+        local VIM = game:GetService("VirtualInputManager")
+        VIM:SendMouseMoveEvent(x,y,game); task.wait(0.08)
+        VIM:SendMouseButtonEvent(x,y,0,true,game,1); task.wait(0.08)
+        VIM:SendMouseButtonEvent(x,y,0,false,game,1)
     end)
 end
 local function _farmerFindAndClickButton(patterns)
@@ -448,9 +436,7 @@ local function _farmerWalkForward(secs)
     end
 end
 local function _farmerLoop()
-    local cycle = 0
     while _farmer.running do
-        cycle += 1
         _farmerWalkForward(_farmer.walkSecs)
         if not _farmer.running then break end
         _farmerGiveUp()
