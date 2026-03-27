@@ -330,7 +330,20 @@ local function _saaDrop(origin, target, speed, drop)
 end
 
 -- ── Target finder ─────────────────────────────────────────────────────────────
+-- Raycast from camera to a part, excluding player + that part's parent model.
+-- Returns true if nothing blocks line of sight.
+local _saVisParams = RaycastParams.new()
+local function _saPartVisible(part)
+    local origin = cam.CFrame.Position
+    local dir    = part.Position - origin
+    _saVisParams.FilterDescendantsInstances = {player.Character, part.Parent}
+    _saVisParams.FilterType = Enum.RaycastFilterType.Exclude
+    local result = workspace:Raycast(origin, dir, _saVisParams)
+    return result == nil
+end
+
 local function _saGetTarget()
+    local visOnly = Library.Flags["AimVisible"]
     local closest, bestDist = nil, _saFOV
     local center = cam.ViewportSize / 2
     local az = workspace:FindFirstChild("AiZones")
@@ -341,6 +354,8 @@ local function _saGetTarget()
                     local part = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
                     local hum  = char:FindFirstChildOfClass("Humanoid")
                     if part and hum and hum.Health > 0 then
+                        -- visible check: skip if behind a wall
+                        if visOnly and not _saPartVisible(part) then continue end
                         local pos, onscreen = cam:WorldToViewportPoint(part.Position)
                         if onscreen then
                             local d = (Vector2.new(pos.X, pos.Y) - center).Magnitude
@@ -356,6 +371,7 @@ local function _saGetTarget()
             local hum  = plr.Character:FindFirstChildOfClass("Humanoid")
             local part = plr.Character:FindFirstChild("Head") or plr.Character:FindFirstChild("HumanoidRootPart")
             if part and hum and hum.Health > 0 then
+                if visOnly and not _saPartVisible(part) then continue end
                 local pos, onscreen = cam:WorldToViewportPoint(part.Position)
                 if onscreen then
                     local d = (Vector2.new(pos.X, pos.Y) - center).Magnitude
