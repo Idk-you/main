@@ -169,6 +169,23 @@ local _togDroppedESP = WorldMiscSection:Toggle({Title = "wanted item scanner", F
 end})
 WorldMiscSection:Toggle({Title = "dropped item esp", Flag = "DroppedESP", Default = false, Callback = function(s)
     BrzS.droppedItemESP = s
+    if not s then
+        -- Destroy all existing dropped item billboard GUIs immediately
+        pcall(function()
+            for _, bb in pairs(_droppedBillboards or {}) do
+                pcall(function() bb:Destroy() end)
+            end
+            _droppedBillboards = {}
+        end)
+        -- Also sweep workspace for any orphaned EH_DroppedLabel billboards
+        pcall(function()
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("BillboardGui") and obj.Name == "EH_DroppedLabel" then
+                    pcall(function() obj:Destroy() end)
+                end
+            end
+        end)
+    end
     task.spawn(function()
         if type(refreshDroppedESP) == "function" then refreshDroppedESP() end
     end)
