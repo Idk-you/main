@@ -26,6 +26,9 @@ end})
 ESPCtrl:Toggle({Title = "show reports", Flag = "ESPShowReports", Default = false, Callback = function(s)
     if espS then espS.showReports = s end
 end})
+ESPCtrl:Toggle({Title = "infinite range", Flag = "ESPInfiniteRange", Default = false, Callback = function(s)
+    if espS then espS.infiniteRange = s end
+end})
 ESPCtrl:Slider({Title = "render distance", Flag = "ESPRenderDist", Symbol = "m", Default = 1000, Min = 100, Max = 5000, Decimals = 1})
 ESPCtrl:Toggle({Title = "show box", Flag = "ESPShowBox", Default = false, Callback = function(s)
     if espS then
