@@ -271,56 +271,186 @@ end
 
 local FreeCamSection = VisTab:Section("free cam", "Left")
 do
-    local _fcEnabled = false
-    local _fcCam = nil
-    local _fcConn = nil
-    local _fcSpeed = 20
-    local _fcSensLabel = FreeCamSection:Label("speed: 20")
+    local UIS2 = game:GetService("UserInputService")
+    local RS2  = game:GetService("RunService")
+    local Players2 = game:GetService("Players")
+    local LocalPlayer2 = Players2.LocalPlayer
+
+    local _fcEnabled   = false
+    local _fcConn      = nil
+    local _fcSpeed     = 50
+    local _fcShowDist  = true
+    local _fcSensLabel = FreeCamSection:Label("speed: 50")
+
+    local pitch, yaw = 0, 0
+    local _fcCF        = nil
+    local _fcPart      = nil   -- replication focus anchor
+    local _fcGhost     = nil   -- clone of player's character left behind
+    local _fcGhostLabel = nil  -- distance text drawing
+
+    local function _fcCleanup()
+        if _fcConn then _fcConn:Disconnect(); _fcConn = nil end
+        cam.CameraType = Enum.CameraType.Custom
+        pcall(function() LocalPlayer2.ReplicationFocus = nil end)
+        if _fcPart then _fcPart:Destroy(); _fcPart = nil end
+        if _fcGhostLabel then _fcGhostLabel:Remove(); _fcGhostLabel = nil end
+        if _fcGhost then _fcGhost:Destroy(); _fcGhost = nil end
+    end
 
     FreeCamSection:Toggle({Title = "enable free cam", Flag = "FreeCam", Default = false, Callback = function(s)
         _fcEnabled = s
         if s then
-            _fcCam = {mode = cam.CameraType, subject = cam.CameraSubject, cf = cam.CFrame}
+            _fcCF = cam.CFrame
+            pitch, yaw = _fcCF:ToOrientation()
             cam.CameraType = Enum.CameraType.Scriptable
-            cam.CameraSubject = nil
-            local UIS2 = game:GetService("UserInputService")
-            local RS2  = game:GetService("RunService")
-            local pitch, yaw = 0, 0
-            local lastMouse = UIS2:GetMouseLocation()
-            local sens = 0.003
+
+            -- anchor part so the server keeps streaming terrain/players around the cam
+            _fcPart = Instance.new("Part")
+            _fcPart.Anchored   = true
+            _fcPart.CanCollide = false
+            _fcPart.Transparency = 1
+            _fcPart.Name = "FreeCamFocus"
+            _fcPart.Parent = workspace.Terrain
+            pcall(function() LocalPlayer2.ReplicationFocus = _fcPart end)
+
+            -- leave a ghost copy of the character behind so others/your client still sees a body
+            local char = LocalPlayer2.Character
+            if char then
+                local oldArchivable = char.Archivable
+                char.Archivable = true
+                local ok, ghost = pcall(function() return char:Clone() end)
+                char.Archivable = oldArchivable
+                if ok and ghost then
+                    ghost.Name = "FreeCamGhost_ESP_IGNORE"
+                    for _, desc in ipairs(ghost:GetDescendants()) do
+                        if desc:IsA("BasePart") then
+                            desc.CanCollide = false
+                            desc.CanTouch   = false
+                            desc.CanQuery   = false
+                            desc.Massless   = true
+                            desc.Anchored   = true
+                        elseif desc:IsA("Script") or desc:IsA("LocalScript") then
+                            desc:Destroy()
+                        end
+                    end
+                    local hum = ghost:FindFirstChildOfClass("Humanoid")
+                    if hum then hum:Destroy() end
+
+                    local hrp = ghost:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local txt = Drawing.new("Text")
+                        txt.Center  = true
+                        txt.Outline = true
+                        txt.Font    = 3
+                        txt.Size    = Library.Flags["ESPFontSize"] or 13
+                        txt.Color   = Color3.fromRGB(255, 255, 255)
+                        txt.Visible = false
+                        _fcGhostLabel = txt
+                    end
+
+                    ghost.Parent = workspace.Terrain
+                    local realHrp = char:FindFirstChild("HumanoidRootPart")
+                    if realHrp then ghost:PivotTo(realHrp.CFrame) end
+                    _fcGhost = ghost
+                end
+            end
+
+            local lastStream = 0
             _fcConn = RS2.RenderStepped:Connect(function(dt)
                 if not _fcEnabled then
-                    if _fcConn then _fcConn:Disconnect(); _fcConn = nil end; return
+                    if _fcConn then _fcConn:Disconnect(); _fcConn = nil end
+                    return
                 end
-                local m = UIS2:GetMouseLocation()
-                local dx = m.X - lastMouse.X; local dy = m.Y - lastMouse.Y
-                lastMouse = m
-                yaw   = yaw - dx * sens
-                pitch = math.clamp(pitch - dy * sens, -math.pi/2+0.01, math.pi/2-0.01)
-                local rot = CFrame.Angles(0,yaw,0) * CFrame.Angles(pitch,0,0)
+
+                if UIS2:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+                    UIS2.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+                    local delta = UIS2:GetMouseDelta()
+                    pitch = math.clamp(pitch - delta.Y * 0.005, -math.pi/2 + 0.01, math.pi/2 - 0.01)
+                    yaw   = yaw - delta.X * 0.005
+                else
+                    UIS2.MouseBehavior = Enum.MouseBehavior.Default
+                end
+
                 local move = Vector3.new()
-                local spd = _fcSpeed * dt
-                if UIS2:IsKeyDown(Enum.KeyCode.W) then move = move + rot.LookVector end
-                if UIS2:IsKeyDown(Enum.KeyCode.S) then move = move - rot.LookVector end
-                if UIS2:IsKeyDown(Enum.KeyCode.A) then move = move - rot.RightVector end
-                if UIS2:IsKeyDown(Enum.KeyCode.D) then move = move + rot.RightVector end
-                if UIS2:IsKeyDown(Enum.KeyCode.E) then move = move + Vector3.new(0,1,0) end
-                if UIS2:IsKeyDown(Enum.KeyCode.Q) then move = move - Vector3.new(0,1,0) end
-                cam.CFrame = CFrame.new(cam.CFrame.Position + move*spd) * rot
+                if UIS2:IsKeyDown(Enum.KeyCode.W) then move = move + Vector3.new(0,0,1) end
+                if UIS2:IsKeyDown(Enum.KeyCode.S) then move = move + Vector3.new(0,0,-1) end
+                if UIS2:IsKeyDown(Enum.KeyCode.A) then move = move + Vector3.new(-1,0,0) end
+                if UIS2:IsKeyDown(Enum.KeyCode.D) then move = move + Vector3.new(1,0,0) end
+                if UIS2:IsKeyDown(Enum.KeyCode.E) or UIS2:IsKeyDown(Enum.KeyCode.Space)      then move = move + Vector3.new(0,1,0) end
+                if UIS2:IsKeyDown(Enum.KeyCode.Q) or UIS2:IsKeyDown(Enum.KeyCode.LeftControl) then move = move + Vector3.new(0,-1,0) end
+
+                _fcCF = CFrame.new(_fcCF.Position) * CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)
+                if move.Magnitude > 0 then
+                    move = move.Unit
+                    _fcCF = _fcCF + (_fcCF.RightVector * move.X + _fcCF.UpVector * move.Y + _fcCF.LookVector * move.Z) * (_fcSpeed * dt)
+                end
+
+                cam.CFrame = _fcCF
+
+                if _fcPart then
+                    _fcPart.CFrame = _fcCF
+                    pcall(function() LocalPlayer2.ReplicationFocus = _fcPart end)
+                    if tick() - lastStream > 1 then
+                        lastStream = tick()
+                        task.spawn(function()
+                            pcall(function() LocalPlayer2:RequestStreamAroundAsync(_fcCF.Position) end)
+                        end)
+                    end
+                end
+
+                if _fcGhostLabel then
+                    local char2 = LocalPlayer2.Character
+                    local hrp2  = char2 and char2:FindFirstChild("HumanoidRootPart")
+                    if hrp2 and _fcShowDist then
+                        local dist = math.floor((hrp2.Position - _fcCF.Position).Magnitude * 0.28)
+                        _fcGhostLabel.Text = "[" .. dist .. "m]"
+                        _fcGhostLabel.Size = Library.Flags["ESPFontSize"] or 13
+                        local pos, onScreen = cam:WorldToViewportPoint(hrp2.Position)
+                        if onScreen then
+                            _fcGhostLabel.Position = Vector2.new(pos.X, pos.Y)
+                            _fcGhostLabel.Visible = true
+                        else
+                            _fcGhostLabel.Visible = false
+                        end
+                    else
+                        _fcGhostLabel.Visible = false
+                    end
+                end
+
+                -- keep your real character frozen in place while in freecam
+                local char2 = LocalPlayer2.Character
+                if char2 then
+                    local root = char2:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        root.AssemblyLinearVelocity = Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+                    end
+                    local hum2 = char2:FindFirstChildOfClass("Humanoid")
+                    if hum2 then hum2:Move(Vector3.zero, false) end
+                end
             end)
         else
-            if _fcConn then _fcConn:Disconnect(); _fcConn = nil end
-            if _fcCam then
-                cam.CameraType = _fcCam.mode or Enum.CameraType.Custom
-                cam.CameraSubject = game:GetService("Players").LocalPlayer.Character
-                    and game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                    or _fcCam.subject
-            end
+            _fcCleanup()
         end
     end})
-    FreeCamSection:Slider({Title = "speed", Flag = "FreeCamSpeed", Symbol = "", Default = 20, Min = 5, Max = 150, Decimals = 0, Callback = function(v)
+
+    FreeCamSection:Toggle({Title = "show distance esp", Flag = "FreeCamShowDist", Default = true, Callback = function(s)
+        _fcShowDist = s
+    end})
+
+    FreeCamSection:Slider({Title = "speed", Flag = "FreeCamSpeed", Symbol = "", Default = 50, Min = 10, Max = 575, Decimals = 0, Callback = function(v)
         _fcSpeed = v; _fcSensLabel:Set("speed: "..v)
     end})
 end
+
+-- ─── infinite range esp ─────────────────────────────────────────────────────
+-- Toggle here only sets the flag. Hook this into your main ESP draw loop in
+-- main-ui.lua (the per-player loop in espS) — when a player's character/parts
+-- aren't available (out of streaming range), check espS.infiniteRange and fall
+-- back to drawing using ReplicatedStorage.Players.<name>.Status.UAC.LastVerifiedPos
+-- via WorldToViewportPoint, similar to how target info / report stats already
+-- read from ReplicatedStorage.Players.
+CamSection:Toggle({Title = "infinite range esp", Flag = "ESPInfiniteRange", Default = false, Callback = function(s)
+    if espS then espS.infiniteRange = s end
+end})
 
 _G.EH_VisTab = VisTab
