@@ -695,6 +695,12 @@ RunService.Heartbeat:Connect(function(dt)
                 else
                     removeHL(espDrawings[plr])
                 end
+            elseif espS.enabled and espS.infiniteRange and not plr.Character and not isTeammate then
+                if not espDrawings[plr] then
+                    espDrawings[plr] = createESPEntry(espS.boxColor)
+                end
+                drawESPInfinite(espDrawings[plr], plr, espS.boxColor, myHRP)
+                removeHL(espDrawings[plr])
             else
                 if espDrawings[plr] then
                     hideESPEntry(espDrawings[plr])
@@ -792,7 +798,7 @@ RunService.Heartbeat:Connect(function(dt)
     end
 
     for plr, d in pairs(espDrawings) do
-        if not plr.Parent or not plr.Character then
+        if not plr.Parent or (not plr.Character and not espS.infiniteRange) then
             removeESPEntry(d)
             espDrawings[plr] = nil
         end
