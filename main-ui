@@ -5022,6 +5022,7 @@ espS = {
     enabled = false,
     npcESP = false,
     teamCheck = false,
+    infiniteRange = false,
 
     boxMode = "Corner",
     boxColor = Color3.fromRGB(255, 155, 205),
@@ -6018,6 +6019,62 @@ drawESPEntry = function(d, char, color, myHRP)
         d.tracer.Visible = true
     else
         d.tracer.Visible = false
+    end
+end
+
+-- ─── Infinite range ESP ──────────────────────────────────────────────────────
+-- Used when a player's Character isn't loaded/streamed in (out of normal
+-- range). Falls back to ReplicatedStorage.Players.<name>.Status.UAC's
+-- LastVerifiedPos (server-reported position) to draw just a name + distance.
+drawESPInfinite = function(d, plr, color, myHRP)
+    local rsP = ReplicatedStorage:FindFirstChild("Players")
+    rsP = rsP and rsP:FindFirstChild(plr.Name)
+    local uac = rsP and rsP:FindFirstChild("Status") and rsP.Status:FindFirstChild("UAC")
+    local worldPos = uac and uac:GetAttribute("LastVerifiedPos")
+
+    if typeof(worldPos) ~= "Vector3" then
+        hideESPEntry(d)
+        return
+    end
+
+    local screen, visible, z = w2s(worldPos)
+    if not visible or (z and z < 0) then
+        hideESPEntry(d)
+        return
+    end
+
+    -- only name + distance for infinite-range entries; hide everything else
+    d.box2d.Visible = false
+    d.boxFill.Visible = false
+    d.hpBg.Visible = false
+    d.hpFg.Visible = false
+    d.hpBgTop.Visible = false
+    d.hpFgTop.Visible = false
+    d.weapTxt.Visible = false
+    d.tracer.Visible = false
+    if d.hsrTxt then d.hsrTxt.Visible = false end
+    if d.reportTxt then d.reportTxt.Visible = false end
+    for _, l in ipairs(d.corners) do l.Visible = false end
+    for _, l in ipairs(d.lines3d) do l.Visible = false end
+    for _, l in ipairs(d.skelLines) do l.Visible = false end
+
+    if espS.showName then
+        d.nameTxt.Text = plr.Name
+        d.nameTxt.Color = color
+        d.nameTxt.Position = Vector2.new(screen.X + espS.namePos.X, screen.Y + espS.namePos.Y)
+        d.nameTxt.Visible = true
+    else
+        d.nameTxt.Visible = false
+    end
+
+    if espS.showDistance and myHRP then
+        local studs = (myHRP.Position - worldPos).Magnitude
+        d.distTxt.Text = math.floor(studs * 0.28) .. "m [out of range]"
+        d.distTxt.Color = espS.distColor
+        d.distTxt.Position = Vector2.new(screen.X + espS.distPos.X, screen.Y + espS.distPos.Y)
+        d.distTxt.Visible = true
+    else
+        d.distTxt.Visible = false
     end
 end
 
