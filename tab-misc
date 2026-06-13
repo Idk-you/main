@@ -323,6 +323,84 @@ SFXSection:Toggle({Title = "no inv blur", Flag = "NoInvBlur", Default = false, C
 end})
 SFXSection:Toggle({Title = "no repair blur", Flag = "NoRepairBlur", Default = false})
 
+-- ─── boss / player highlights ─────────────────────────────────────────────────
+local _highlightStore = { bosses = {} }
+
+-- Exact/partial model names for known bosses
+local BOSS_NAMES = {
+    "Anton", "Dozer", "Whisper",
+    "Mi24", "Mi_24", "Mi-24", "Hind",
+    "BTR", "Btr",
+    "Raider_Boss", "BossNPC", "FieldBoss", "EliteBoss",
+}
+
+local function _isBossModel(obj)
+    if not obj:IsA("Model") then return false end
+    for _, name in ipairs(BOSS_NAMES) do
+        if obj.Name:lower():find(name:lower(), 1, true) then return true end
+    end
+    -- Also check for a Humanoid with a boss-level name attribute
+    local hum = obj:FindFirstChildOfClass("Humanoid")
+    if hum then
+        local tag = obj:FindFirstChild("BossTag") or obj:FindFirstChild("IsBoss")
+        if tag then return true end
+        -- Some games store boss health as very high values
+        if hum.MaxHealth >= 5000 then return true end
+    end
+    return false
+end
+
+local function _applyHighlight(model, color, fillColor)
+    local existing = model:FindFirstChild("EH_BossHL")
+    if existing then existing:Destroy() end
+    local hl = Instance.new("Highlight")
+    hl.Name          = "EH_BossHL"
+    hl.OutlineColor  = color or Color3.fromRGB(255, 30, 30)
+    hl.FillColor     = fillColor or Color3.fromRGB(255, 30, 30)
+    hl.FillTransparency   = 0.65
+    hl.OutlineTransparency = 0
+    hl.DepthMode    = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent       = model
+    return hl
+end
+
+local function _removeHighlight(model)
+    pcall(function()
+        local hl = model:FindFirstChild("EH_BossHL")
+        if hl then hl:Destroy() end
+    end)
+end
+
+local function _refreshBossHighlights(enabled, color)
+    -- Clean up old ones first
+    for _, model in ipairs(_highlightStore.bosses) do
+        pcall(function() _removeHighlight(model) end)
+    end
+    _highlightStore.bosses = {}
+
+    if not enabled then return end
+
+    local col = color or BrzS.bossHighlightColor or Color3.fromRGB(255, 30, 30)
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if _isBossModel(obj) then
+            pcall(function()
+                _applyHighlight(obj, col, col)
+                table.insert(_highlightStore.bosses, obj)
+            end)
+        end
+    end
+end
+
+-- Re-scan bosses periodically when enabled (new bosses may spawn mid-game)
+task.spawn(function()
+    while true do
+        task.wait(5)
+        if BrzS.bossHighlight then
+            pcall(function() _refreshBossHighlights(true, BrzS.bossHighlightColor) end)
+        end
+    end
+end)
+
 local BossSection = MiscTab:Section("boss info", "Right")
 BossSection:Toggle({Title = "show boss panel", Flag = "ShowBoss", Default = false, Callback = function(s)
     BrzS.showBoss = s
@@ -333,6 +411,33 @@ BossSection:Toggle({Title = "show boss panel", Flag = "ShowBoss", Default = fals
     end
 end})
 BossSection:Toggle({Title = "panel movable", Flag = "BossMovable", Default = false})
+BossSection:Toggle({
+    Title    = "boss highlight",
+    Flag     = "BossHighlight",
+    Default  = false,
+    Callback = function(s)
+        BrzS.bossHighlight = s
+        task.spawn(function() _refreshBossHighlights(s, BrzS.bossHighlightColor) end)
+    end
+}):Colorpicker({
+    Color    = Color3.fromRGB(255, 30, 30),
+    Flag     = "BossHighlightColor",
+    Callback = function(c)
+        BrzS.bossHighlightColor = c
+        if BrzS.bossHighlight then
+            task.spawn(function() _refreshBossHighlights(true, c) end)
+        end
+    end
+})
+BossSection:Button({
+    Title    = "rescan bosses",
+    Callback = function()
+        if BrzS.bossHighlight then
+            task.spawn(function() _refreshBossHighlights(true, BrzS.bossHighlightColor) end)
+            r0_0("exchange.hook", "boss highlight rescanned 👁", 3)
+        end
+    end
+})
 
 local DetSection = MiscTab:Section("detectors", "Right")
 DetSection:Toggle({Title = "mod detector",   Flag = "ModDetector",   Default = false})
