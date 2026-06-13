@@ -339,28 +339,26 @@ local function _isBossModel(obj)
     for _, name in ipairs(BOSS_NAMES) do
         if obj.Name:lower():find(name:lower(), 1, true) then return true end
     end
-    -- Also check for a Humanoid with a boss-level name attribute
-    local hum = obj:FindFirstChildOfClass("Humanoid")
-    if hum then
-        local tag = obj:FindFirstChild("BossTag") or obj:FindFirstChild("IsBoss")
-        if tag then return true end
-        -- Some games store boss health as very high values
-        if hum.MaxHealth >= 5000 then return true end
+    local ok, hum = pcall(function() return obj:FindFirstChildOfClass("Humanoid") end)
+    if ok and hum then
+        if obj:FindFirstChild("BossTag") or obj:FindFirstChild("IsBoss") then return true end
+        local mh = tonumber(hum.MaxHealth)
+        if mh and mh >= 5000 then return true end
     end
     return false
 end
 
-local function _applyHighlight(model, color, fillColor)
+local function _applyHighlight(model, color)
     local existing = model:FindFirstChild("EH_BossHL")
     if existing then existing:Destroy() end
     local hl = Instance.new("Highlight")
-    hl.Name          = "EH_BossHL"
-    hl.OutlineColor  = color or Color3.fromRGB(255, 30, 30)
-    hl.FillColor     = fillColor or Color3.fromRGB(255, 30, 30)
-    hl.FillTransparency   = 0.65
+    hl.Name                = "EH_BossHL"
+    hl.OutlineColor        = color or Color3.fromRGB(255, 30, 30)
+    hl.FillColor           = color or Color3.fromRGB(255, 30, 30)
+    hl.FillTransparency    = 0.65
     hl.OutlineTransparency = 0
-    hl.DepthMode    = Enum.HighlightDepthMode.AlwaysOnTop
-    hl.Parent       = model
+    hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent              = model
     return hl
 end
 
@@ -382,9 +380,10 @@ local function _refreshBossHighlights(enabled, color)
 
     local col = color or BrzS.bossHighlightColor or Color3.fromRGB(255, 30, 30)
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if _isBossModel(obj) then
+        local ok, isBoss = pcall(_isBossModel, obj)
+        if ok and isBoss then
             pcall(function()
-                _applyHighlight(obj, col, col)
+                _applyHighlight(obj, col)
                 table.insert(_highlightStore.bosses, obj)
             end)
         end
