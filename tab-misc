@@ -401,11 +401,17 @@ task.spawn(function()
     end
 end)
 
+BrzS.bossHighlightColor = BrzS.bossHighlightColor or Color3.fromRGB(255, 30, 30)
+
 local BossSection = MiscTab:Section("boss info", "Right")
 BossSection:Toggle({Title = "show boss panel", Flag = "ShowBoss", Default = false, Callback = function(s)
     BrzS.showBoss = s
     if s then
-        if not bossInfoGui or not bossInfoGui.Parent then buildBossInfoGui() end
+        pcall(function()
+            if not bossInfoGui or not bossInfoGui.Parent then
+                if type(buildBossInfoGui) == "function" then buildBossInfoGui() end
+            end
+        end)
     else
         if bossInfoGui then pcall(function() bossInfoGui:Destroy() end); bossInfoGui = nil end
     end
@@ -417,7 +423,9 @@ BossSection:Toggle({
     Default  = false,
     Callback = function(s)
         BrzS.bossHighlight = s
-        task.spawn(function() _refreshBossHighlights(s, BrzS.bossHighlightColor) end)
+        task.spawn(function()
+            _refreshBossHighlights(s, BrzS.bossHighlightColor)
+        end)
     end
 }):Colorpicker({
     Color    = Color3.fromRGB(255, 30, 30),
@@ -434,7 +442,7 @@ BossSection:Button({
     Callback = function()
         if BrzS.bossHighlight then
             task.spawn(function() _refreshBossHighlights(true, BrzS.bossHighlightColor) end)
-            r0_0("exchange.hook", "boss highlight rescanned 👁", 3)
+            pcall(function() r0_0("exchange.hook", "boss highlight rescanned 👁", 3) end)
         end
     end
 })
